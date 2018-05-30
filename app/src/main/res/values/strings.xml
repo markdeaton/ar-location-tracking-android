@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE resources [
+    <!ENTITY TYPE_PARAM "TYPE">
+    <!ENTITY USER_PARAM "USER">
+    <!ENTITY COLOR_PARAM "COLOR">
+    <!ENTITY CAMERA_PARAM "CAMERA">
+    <!ENTITY TYPE_HELLO "HELLO">
+    <!ENTITY TYPE_COLOR "COLOR">
+    <!ENTITY TYPE_LOCATION "LOCATION">
+]>
+<resources>
+    <string name="app_name">Device Location Tracker</string>
+    <string name="quickstart_message">Click the SUBSCRIBE TO NEWS button below to subscribe to the
+        news topic. Messages sent to the news topic will be received. The LOG TOKEN button logs the
+        InstanceID token to logcat.</string>
+    <string name="subscribe_to_news">Subscribe To Location Updates</string>
+    <string name="log_token">Log Token</string>
+
+    <string name="msg_subscribed">Subscribed to APL_Location_Updates topic</string>
+    <string name="msg_token_fmt" translatable="false">InstanceID Token: %s</string>
+
+    <string name="default_notification_channel_id" translatable="false">fcm_default_channel</string>
+    <!--
+        This is the name that users will see when interacting with this channel.
+        It should describe the category of notifications that will be sent through this channel
+     -->
+    <string name="default_notification_channel_name" translatable="false">Location Updates</string>
+
+
+    <!--Firebase Cloud identifiers-->
+    <string name="notification_topic" translatable="false">APL_Location_Updates</string>
+    <string name="function_update_location" translatable="false">updateLocation</string>
+
+    <string name="scene_package_filename" translatable="false">w120n37_yosemite_dxt.slpk</string>
+    <string name="scene_layer_url_yosemite" translatable="false">https://tiles.arcgis.com/tiles/6DIQcwlPy8knb6sg/arcgis/rest/services/yosemite_halfdome/SceneServer/layers/0</string>
+    <string name="scene_layer_url_sd" translatable="false">https://tiles.arcgis.com/tiles/Imiq6naek6ZWdour/arcgis/rest/services/San_Diego_Textured_Buildings/SceneServer/layers/0</string>
+
+    <!-- Find values in notification payload text -->
+    <!--Capture an expression starting with a tilde and ending with either another tilde or the end of the string-->
+    <string name="act_location_update_available">com.esri.apl.locationsharing.receiver.location_updates</string>
+    <string name="extra_location_update_data">location_payload</string>
+
+    <string name="typeval_initial_hello">&TYPE_HELLO;</string>
+    <string name="typeval_color">&TYPE_COLOR;</string>
+    <string name="typeval_location">&TYPE_LOCATION;</string>
+
+    <string name="regex_find_type" translatable="false">(?&lt;=~&TYPE_PARAM;:).*?(?=~|$)</string>
+    <string name="regex_find_user" translatable="false">(?&lt;=~&USER_PARAM;:).*?(?=~|$)</string>
+    <string name="regex_find_color" translatable="false">(?&lt;=~&COLOR_PARAM;:).*?(?=~|$)</string>
+    <string name="regex_find_camera" translatable="false">(?&lt;=~&CAMERA_PARAM;:).*?(?=~|$)</string>
+
+    <string name="update_initial_hello" translatable="false">~&TYPE_PARAM;:&TYPE_HELLO;~&USER_PARAM;:$1%s~&COLOR_PARAM;:$2%s</string>
+    <string name="update_color" translatable="false">~&TYPE_PARAM;:&TYPE_COLOR;~&USER_PARAM;:$1%s~&COLOR_PARAM;:$2%s</string>
+    <!--Camera variables are lon, lat, alt, heading, pitch, roll.-->
+    <string name="update_position" translatable="false">~&TYPE_PARAM;:&TYPE_LOCATION;~&USER_PARAM;:$1%s~&CAMERA_PARAM;:$2%f,$3%f,$4%f,$5%d,$6%d,$7%d</string>
+
+</resources>

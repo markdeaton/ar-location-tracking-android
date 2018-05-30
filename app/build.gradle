@@ -1,0 +1,69 @@
+apply plugin: 'com.android.application'
+check.dependsOn 'assembleDebugAndroidTest'
+
+android {
+    compileSdkVersion 27
+    defaultConfig {
+        applicationId 'com.esri.apl.device_location_tracker'
+        minSdkVersion 24
+        targetSdkVersion 27
+        versionCode 1
+        versionName "1.0"
+        ndk {
+            /*
+             * Sceneform is available for the following ABIs: armeabi-v7a, arm64-v8a, armv7a,
+             * x86_64 and x86. This app enables arm64-v8a to run on
+             * devices and x86 to run on the emulator.
+             */
+            abiFilters 'armeabi-v7a', 'x86'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    packagingOptions {
+        exclude 'LICENSE.txt'
+    }
+    lintOptions {
+        abortOnError false
+    }
+    productFlavors {
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+configurations.all {
+    resolutionStrategy.force 'com.android.support:support-annotations:27.1.1'
+}
+
+repositories {
+    maven { url 'https://maven.google.com' }
+}
+
+dependencies {
+//    Use v12.0.1 of Google Services because latest 15.0.0 causes compile issues
+    implementation 'com.android.support:appcompat-v7:27.1.1'
+    implementation 'com.android.support.constraint:constraint-layout:1.1.0'
+    implementation 'com.google.firebase:firebase-auth:15.1.0'
+    implementation 'com.microsoft.azure:notification-hubs-android-sdk:0.4@aar'
+    implementation 'com.microsoft.azure:azure-notifications-handler:1.0.1@aar'
+    implementation 'com.android.support:design:27.1.1'
+    implementation 'com.esri.arcgisruntime:arcgis-android:100.2.1-arbeta2'
+    implementation 'com.google.android.gms:play-services-gcm:15.0.1'
+    implementation 'com.google.code.gson:gson:2.8.4'
+    implementation 'com.google.firebase:firebase-crash:15.0.2'
+    // ARCore library
+    implementation 'com.google.ar:core:1.2.0'
+    implementation "com.google.ar.sceneform:core:1.0.0"
+    implementation "com.google.ar.sceneform.ux:sceneform-ux:1.0.0"
+}
+
+apply plugin: 'com.google.ar.sceneform.plugin'
+apply plugin: 'com.google.gms.google-services'
