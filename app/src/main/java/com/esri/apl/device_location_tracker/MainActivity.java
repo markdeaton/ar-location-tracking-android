@@ -19,13 +19,16 @@ package com.esri.apl.device_location_tracker;
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -41,8 +44,14 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 
+import com.esri.apl.device_location_tracker.exception.PayloadParseException;
+import com.esri.apl.device_location_tracker.exception.UserException;
 import com.esri.apl.device_location_tracker.service.AzureNotifHubUpdateFCMTokenSvc;
 import com.esri.apl.device_location_tracker.service.AzureNotificationsHandler;
+import com.esri.apl.device_location_tracker.util.ARUtils;
+import com.esri.apl.device_location_tracker.util.MessageUtils;
+import com.esri.apl.device_location_tracker.util.TextUtils;
+import com.esri.apl.device_location_tracker.viewmodel.UserViewModel;
 import com.esri.arcgisruntime.ArcGISRuntimeException;
 import com.esri.arcgisruntime.concurrent.ListenableFuture;
 import com.esri.arcgisruntime.geometry.Envelope;
@@ -58,7 +67,6 @@ import com.esri.arcgisruntime.mapping.view.SceneView;
 import com.esri.arcgisruntime.security.AuthenticationManager;
 import com.esri.arcgisruntime.security.DefaultAuthenticationChallengeHandler;
 import com.esri.arcgisruntime.security.UserCredential;
-import com.google.android.gms.tasks.Task;
 import com.google.ar.core.Session;
 import com.google.ar.core.exceptions.CameraNotAvailableException;
 import com.google.ar.core.exceptions.UnavailableException;
@@ -70,10 +78,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import utils.ARUtils;
-import utils.MessageUtils;
-import utils.PayloadParseException;
-import utils.TextUtils;
+import static android.widget.Toast.LENGTH_SHORT;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -87,12 +92,15 @@ public class MainActivity extends AppCompatActivity {
   private SceneView mSceneView;
   private ArSceneView mArSceneView;
 
+  UserViewModel mUserViewModel;
   private UserCredential mMe;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+
+    mUserViewModel = ViewModelProviders.of(this).get(UserViewModel.class);
 
     AuthenticationManager.setAuthenticationChallengeHandler(new DefaultAuthenticationChallengeHandler(this));
     mMe = new UserCredential(getString(R.string.agol_username), getString(R.string.agol_userpw));
@@ -103,6 +111,8 @@ public class MainActivity extends AppCompatActivity {
 
     mSceneView = findViewById(R.id.scene_view);
     mSceneView.setAttributionTextVisible(false);
+    mSceneView.getGraphicsOverlays().add(mUserViewModel.getGraphicsOverlay());
+
     // Enable AR for scene view.
     mSceneView.setARModeEnabled(true);
 
@@ -151,6 +161,15 @@ public class MainActivity extends AppCompatActivity {
 
 //    btnSendLocation = (Button)findViewById(R.id.btnSendLocation);
 //    btnSendLocation.setOnClickListener(sendLocation);
+    ptnTypeField = Pattern.compile(getString(R.string.regex_find_type),
+            Pattern.CASE_INSENSITIVE);
+    ptnUserField = Pattern.compile(getString(R.string.regex_find_user),
+            Pattern.CASE_INSENSITIVE);
+    ptnColorField = Pattern.compile(getString(R.string.regex_find_color),
+            Pattern.CASE_INSENSITIVE);
+    ptnCameraField = Pattern.compile(getString(R.string.regex_find_camera),
+            Pattern.CASE_INSENSITIVE);
+
   }
 
   @Override
@@ -215,16 +234,12 @@ public class MainActivity extends AppCompatActivity {
     }
   };
 
+  private Pattern ptnTypeField;
+  private Pattern ptnUserField;
+  private Pattern ptnColorField;
+  private Pattern ptnCameraField;
   /** Receive a local broadcast from push message handler */
   private BroadcastReceiver mLocationsReceiver = new BroadcastReceiver() {
-    private Pattern ptnTypeField = Pattern.compile(getString(R.string.regex_find_type),
-            Pattern.CASE_INSENSITIVE);
-    private Pattern ptnUserField = Pattern.compile(getString(R.string.regex_find_user),
-            Pattern.CASE_INSENSITIVE);
-    private Pattern ptnColorField = Pattern.compile(getString(R.string.regex_find_color),
-            Pattern.CASE_INSENSITIVE);
-    private Pattern ptnCameraField = Pattern.compile(getString(R.string.regex_find_camera),
-            Pattern.CASE_INSENSITIVE);
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -239,26 +254,46 @@ public class MainActivity extends AppCompatActivity {
 
         // Handle differently, depending on message type
         if (sType.toUpperCase().equals(getString(R.string.typeval_initial_hello).toUpperCase())) {
+          // HELLO
           sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
+          // TODO Figure out color representation in notification payloads
           sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
-
+          int iColor = Color.parseColor(sColor);
+          mUserViewModel.createUser(sUser, iColor);
         } else if (sType.toUpperCase().equals(getString(R.string.typeval_color).toUpperCase())) {
+          // RESPONSE TO HELLO; COLOR
           sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
           sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
-
+          int iColor = Color.parseColor(sColor);
+          mUserViewModel.updateUserColor(sUser, iColor);
         } else if (sType.toUpperCase().equals(getString(R.string.typeval_location).toUpperCase())) {
+          // LOCATION UPDATE
           sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
           sLocation = TextUtils.matchedGroupVal(ptnCameraField, sLocationPayload);
-
+          // Location is 6 comma-separated values: x,y,z,heading,pitch,roll
+          String[] aryLocVals = sLocation.split(",");
+          int aryLen = aryLocVals.length;
+          if (aryLen < 6) throw new PayloadParseException(
+                  "Location has " + aryLen + " values instead of 6");
+          double x = Double.parseDouble(aryLocVals[0]);
+          double y = Double.parseDouble(aryLocVals[1]);
+          double z = Double.parseDouble(aryLocVals[2]);
+          double heading = Double.parseDouble(aryLocVals[3]);
+          double pitch = Double.parseDouble(aryLocVals[4]);
+          double roll = Double.parseDouble(aryLocVals[5]);
+          mUserViewModel.updateUserLocation(sUser, x, y, z, heading, pitch, roll);
         }
       } catch (PayloadParseException exc) {
-        MessageUtils.showToast(context, exc.getMessage());
+        MessageUtils.showToast(context,
+                "Notification error:\n" + exc.getLocalizedMessage(), LENGTH_SHORT);
         return;
+      } catch (UserException e) {
+        MessageUtils.showToast(MainActivity.this, e.getLocalizedMessage(), LENGTH_SHORT);
       }
     }
   };
 
-    private Task<String> updateLocation(Location loc) {
+  private AsyncTask<String, Void, Exception> UpdateLocationTask (Location loc) {
     Map<String, Object> data = new HashMap<>();
     data.put("title", "title");
     data.put("x", loc.getLongitude());
@@ -322,14 +357,14 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void completeSetup(Camera camStart) {
-    final int TRANSLATION_FACTOR = /*1000;*/ /*7*/5000;
+    final int TRANSLATION_FACTOR = 5000;
     // Scene camera controlled by sensors
     FirstPersonCameraController fpcController = new FirstPersonCameraController();
     if (camStart != null) fpcController.setInitialPosition(camStart);
 
     fpcController.setTranslationFactor(TRANSLATION_FACTOR);
 
-    ARCoreSource arSource = new ARCoreSource(mArSceneView, camStart);
+    ARCoreSource arSource = new ARCoreSource(mArSceneView.getScene(), mArSceneView.getSession(), camStart, null);
     fpcController.setDeviceMotionDataSource(arSource);
 
 
@@ -343,6 +378,7 @@ public class MainActivity extends AppCompatActivity {
   protected void onPause(){
     mSceneView.pause();
     mArSceneView.pause();
+    // TODO Stop timer for ARCore pose updates
 //    releaseCamera();
     super.onPause();
   }
@@ -369,8 +405,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     mSceneView.resume();
+
+
     try {
       mArSceneView.resume();
+      // TODO Start a one-second timer for ARCore pose updates
     } catch (CameraNotAvailableException e) {
       MessageUtils.showToast(this, "The camera cannot be acquired. " + e.getLocalizedMessage());
     }

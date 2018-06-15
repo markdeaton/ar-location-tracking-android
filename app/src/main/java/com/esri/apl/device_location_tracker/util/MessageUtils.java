@@ -1,4 +1,4 @@
-package utils;
+package com.esri.apl.device_location_tracker.util;
 
 import android.content.Context;
 import android.support.v7.app.AlertDialog;

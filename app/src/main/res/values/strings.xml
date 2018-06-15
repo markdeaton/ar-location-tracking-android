@@ -54,4 +54,5 @@
     <!--Camera variables are lon, lat, alt, heading, pitch, roll.-->
     <string name="update_position" translatable="false">~&TYPE_PARAM;:&TYPE_LOCATION;~&USER_PARAM;:$1%s~&CAMERA_PARAM;:$2%f,$3%f,$4%f,$5%d,$6%d,$7%d</string>
 
+    <string name="attr_userid" translatable="false">user_id</string>
 </resources>

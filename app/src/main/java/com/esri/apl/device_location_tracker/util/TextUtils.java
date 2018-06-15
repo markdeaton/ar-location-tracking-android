@@ -1,4 +1,6 @@
-package utils;
+package com.esri.apl.device_location_tracker.util;
+
+import com.esri.apl.device_location_tracker.exception.PayloadParseException;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

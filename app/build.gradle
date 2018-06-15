@@ -50,17 +50,19 @@ repositories {
 dependencies {
 //    Use v12.0.1 of Google Services because latest 15.0.0 causes compile issues
     implementation 'com.android.support:appcompat-v7:27.1.1'
-    implementation 'com.android.support.constraint:constraint-layout:1.1.0'
-    implementation 'com.google.firebase:firebase-auth:15.1.0'
+    implementation 'com.android.support:design:27.1.1'
+    implementation 'com.android.support.constraint:constraint-layout:1.1.2'
+    implementation 'com.google.android.gms:play-services-gcm:15.0.1'
+    implementation 'com.squareup.retrofit2:retrofit:2.4.0'
+    implementation 'com.google.code.gson:gson:2.8.4'
+    implementation 'android.arch.lifecycle:extensions:1.1.1'
+    implementation 'com.esri.arcgisruntime:arcgis-android:100.2.1-arbeta2'
+    implementation 'com.google.firebase:firebase-auth:16.0.1'
+    implementation 'com.google.firebase:firebase-crash:16.0.0'
     implementation 'com.microsoft.azure:notification-hubs-android-sdk:0.4@aar'
     implementation 'com.microsoft.azure:azure-notifications-handler:1.0.1@aar'
-    implementation 'com.android.support:design:27.1.1'
-    implementation 'com.esri.arcgisruntime:arcgis-android:100.2.1-arbeta2'
-    implementation 'com.google.android.gms:play-services-gcm:15.0.1'
-    implementation 'com.google.code.gson:gson:2.8.4'
-    implementation 'com.google.firebase:firebase-crash:15.0.2'
     // ARCore library
-    implementation 'com.google.ar:core:1.2.0'
+    implementation 'com.google.ar:core:1.2.1'
     implementation "com.google.ar.sceneform:core:1.0.0"
     implementation "com.google.ar.sceneform.ux:sceneform-ux:1.0.0"
 }
