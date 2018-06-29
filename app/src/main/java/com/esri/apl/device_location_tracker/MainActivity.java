@@ -19,6 +19,7 @@ package com.esri.apl.device_location_tracker;
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.ViewModelProviders;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -27,37 +28,37 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.location.Location;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.SwitchCompat;
 import android.util.Log;
 import android.view.InflateException;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
+import android.view.ViewGroup;
+import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.TextView;
 
 import com.esri.apl.device_location_tracker.exception.PayloadParseException;
 import com.esri.apl.device_location_tracker.exception.UserException;
 import com.esri.apl.device_location_tracker.service.AzureNotifHubUpdateFCMTokenSvc;
 import com.esri.apl.device_location_tracker.service.AzureNotificationsHandler;
 import com.esri.apl.device_location_tracker.util.ARUtils;
+import com.esri.apl.device_location_tracker.util.ColorUtils;
 import com.esri.apl.device_location_tracker.util.MessageUtils;
 import com.esri.apl.device_location_tracker.util.TextUtils;
-import com.esri.apl.device_location_tracker.viewmodel.UserViewModel;
+import com.esri.apl.device_location_tracker.viewmodel.AllOtherUsersViewModel;
+import com.esri.apl.device_location_tracker.viewmodel.MeViewModel;
 import com.esri.arcgisruntime.ArcGISRuntimeException;
-import com.esri.arcgisruntime.concurrent.ListenableFuture;
-import com.esri.arcgisruntime.geometry.Envelope;
-import com.esri.arcgisruntime.geometry.GeometryEngine;
-import com.esri.arcgisruntime.geometry.Point;
-import com.esri.arcgisruntime.geometry.PointBuilder;
 import com.esri.arcgisruntime.layers.ArcGISSceneLayer;
 import com.esri.arcgisruntime.loadable.LoadStatus;
 import com.esri.arcgisruntime.mapping.ArcGISScene;
@@ -67,43 +68,141 @@ import com.esri.arcgisruntime.mapping.view.SceneView;
 import com.esri.arcgisruntime.security.AuthenticationManager;
 import com.esri.arcgisruntime.security.DefaultAuthenticationChallengeHandler;
 import com.esri.arcgisruntime.security.UserCredential;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.ar.core.Frame;
 import com.google.ar.core.Session;
+import com.google.ar.core.TrackingState;
 import com.google.ar.core.exceptions.CameraNotAvailableException;
 import com.google.ar.core.exceptions.UnavailableException;
 import com.google.ar.sceneform.ArSceneView;
+import com.google.ar.sceneform.FrameTime;
+import com.google.ar.sceneform.Scene;
+import com.madrapps.pikolo.HSLColorPicker;
+import com.madrapps.pikolo.listeners.OnColorSelectionListener;
 import com.microsoft.windowsazure.notifications.NotificationsManager;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
+import static android.widget.Toast.LENGTH_LONG;
 import static android.widget.Toast.LENGTH_SHORT;
 
-public class MainActivity extends AppCompatActivity {
+/**
+ *  This activity basically does two things:
+ *  <ol>
+ *  <li>Receive and display other users' locations, involving:
+ *      <ul>
+*        <li>Azure/Firebase notification receiver</li>
+*        <li>Local broadcast receiver rebroadcasts notification data to this activity</li>
+ *      </ul>
+ *  </li>
+ *  <li>Detect and broadcast this user's location; services involved include:
+ *      <ul>
+ *        <li>ARCore position sensing</li>
+ *        <li>Timer to limit update frequency</li>
+ *        <li>Azure/Firebase notification sent as the above conditions dictate</li>
+ *      </ul>
+ *  </li>
+ *  </ol>
+ *
+ *  <table>
+ <tr>
+ <th>Tracking Switch</th>
+ <th>Activity State</th>
+ <th>Broadcast Action</th>
+ <th>Listen Action</th>
+ </tr>
+ <tr>
+ <td>off -> on</td>
+ <td>resumed</td>
+ <td>send hello, start timer</td>
+ <td>start listening</td>
+ </tr>
+ <tr>
+ <td>off -> on</td>
+ <td>paused</td>
+ <td><i>not possible</i></td>
+ <td></td>
+ </tr>
+ <tr>
+ <td>on -> off</td>
+ <td>resumed</td>
+ <td>send goodbye, stop timer</td>
+ <td>stop listening</td>
+ </tr>
+ <tr>
+ <td>on -> off</td>
+ <td>paused</td>
+ <td><i>not possible</i></td>
+ <td></td>
+ </tr>
+ <tr>
+ <td>on</td>
+ <td>paused -> resumed</td>
+ <td>start timer</td>
+ <td>start listening</td>
+ </tr>
+ <tr>
+ <td>on</td>
+ <td>resumed -> paused</td>
+ <td>stop timer</td>
+ <td>stop listening</td>
+ </tr>
+ <tr>
+ <td>off</td>
+ <td>paused -> resumed</td>
+ <td>nothing</td>
+ <td>nothing</td>
+ </tr>
+ <tr>
+ <td>off</td>
+ <td>resumed -> paused</td>
+ <td>nothing</td>
+ <td>nothing</td>
+ </tr>
+ </table>
+ */
+public class MainActivity extends AppCompatActivity implements SceneUpdateCallable {
 
   private static final String TAG = "MainActivity";
   private static final int REQ_CAMERA_READFILES = 0;
+  private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
+  private static final long UPDATE_PERIOD_MS = 5000;
+  private final int TRANSLATION_FACTOR = 2000;
 
-//  private android.hardware.Camera mCamera;
-//  private CameraPreview mPreview;
-
-  private Button btnSendLocation;
   private SceneView mSceneView;
   private ArSceneView mArSceneView;
+  private TextView mTxtLocX, mTxtLocY, mTxtLocZ;
+  private ViewGroup mLytLocationVals;
 
-  UserViewModel mUserViewModel;
-  private UserCredential mMe;
+  private MenuItem mMniLocationValsVisibility, mMniUserName;
+
+  private AllOtherUsersViewModel mOtherUsersViewModel;
+  private MeViewModel mMeViewModel;
+  private UserCredential mMyAGOLCredential;
+
+  /** Timer to send location updates */
+  Timer mTimerSendUpdates;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+
     setContentView(R.layout.activity_main);
 
-    mUserViewModel = ViewModelProviders.of(this).get(UserViewModel.class);
+    mOtherUsersViewModel = ViewModelProviders.of(this).get(AllOtherUsersViewModel.class);
+    mMeViewModel = ViewModelProviders.of(this).get(MeViewModel.class);
+    mMeViewModel.getLocationValsVisibility().observe(this, mOnLocationValsVisibilityChanged);
 
     AuthenticationManager.setAuthenticationChallengeHandler(new DefaultAuthenticationChallengeHandler(this));
-    mMe = new UserCredential(getString(R.string.agol_username), getString(R.string.agol_userpw));
+    mMyAGOLCredential = new UserCredential(getString(R.string.agol_username), getString(R.string.agol_userpw));
+
+    mTxtLocX = findViewById(R.id.txtX); mTxtLocY = findViewById(R.id.txtY); mTxtLocZ = findViewById(R.id.txtZ);
+    mLytLocationVals = findViewById(R.id.lytLocationVals);
 
 //    ArcGISRuntimeEnvironment.setLicense(getString(R.string.license_string_std));
 
@@ -111,31 +210,32 @@ public class MainActivity extends AppCompatActivity {
 
     mSceneView = findViewById(R.id.scene_view);
     mSceneView.setAttributionTextVisible(false);
-    mSceneView.getGraphicsOverlays().add(mUserViewModel.getGraphicsOverlay());
+    mSceneView.getGraphicsOverlays().add(mOtherUsersViewModel.getGraphicsOverlay());
 
     // Enable AR for scene view.
     mSceneView.setARModeEnabled(true);
 
     mArSceneView = findViewById(R.id.ar_view);
 
-    // Azure hub stuff
-    NotificationsManager.handleNotifications(this, getString(R.string.sender_id), AzureNotificationsHandler.class);
     // Start IntentService to register this application with FCM.
-    Intent intent = new Intent(this, AzureNotifHubUpdateFCMTokenSvc.class);
-    startService(intent);
+    if (checkPlayServices()) {
+      Intent intent = new Intent(this, AzureNotifHubUpdateFCMTokenSvc.class);
+      startService(intent);
+    }
 
     // Camera Preview
     checkForPermissions();
 
-    // Notifications
+    // Notification channel
+    // TODO move this to notifications handler ?
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       // Create channel to show notifications.
       String channelId = getString(R.string.default_notification_channel_id);
       String channelName = getString(R.string.default_notification_channel_name);
       NotificationManager notificationManager =
-          getSystemService(NotificationManager.class);
+              getSystemService(NotificationManager.class);
       notificationManager.createNotificationChannel(new NotificationChannel(channelId,
-          channelName, NotificationManager.IMPORTANCE_LOW));
+              channelName, NotificationManager.IMPORTANCE_LOW));
     }
 
     // If a notification message is tapped, any data accompanying the notification
@@ -147,12 +247,12 @@ public class MainActivity extends AppCompatActivity {
     //
     // Handle possible data accompanying notification message.
     // [START handle_data_extras]
-    if (getIntent().getExtras() != null) {
+/*    if (getIntent().getExtras() != null) {
       for (String key : getIntent().getExtras().keySet()) {
         Object value = getIntent().getExtras().get(key);
         Log.d(TAG, "Key: " + key + " Value: " + value);
       }
-    }
+    }*/
     // [END handle_data_extras]
 
 //         [START subscribe_topics]
@@ -170,29 +270,30 @@ public class MainActivity extends AppCompatActivity {
     ptnCameraField = Pattern.compile(getString(R.string.regex_find_camera),
             Pattern.CASE_INSENSITIVE);
 
-  }
-
-  @Override
-  protected void onStart() {
-    super.onStart();
-    // Register listener for other-actor-position updates from the notification receiver service
+    // Register listener for other-user location updates from the notification receiver service
     IntentFilter iflt = new IntentFilter();
     iflt.addAction(getString(R.string.act_location_update_available));
-    LocalBroadcastManager.getInstance(this).registerReceiver(mLocationsReceiver, iflt);
-  }
+    LocalBroadcastManager.getInstance(this).registerReceiver(mPushNotificationsReceiver, iflt);
 
-  @Override
-  protected void onStop() {
-    super.onStop();
-    // Stop listening for chart data
-    LocalBroadcastManager.getInstance(this).unregisterReceiver(mLocationsReceiver);
+
+    // Listen to mMeViewModel.observableError for send-notification exceptions
+    mMeViewModel.observableException.observe(this, mOnSendNotificationException);
+
   }
 
   @Override
   public boolean onCreateOptionsMenu(Menu menu) {
     try {
       getMenuInflater().inflate(R.menu.toolbar_menu, menu);
-//      mTBItems = menu;
+      MenuItem itmSendLocation = menu.findItem(R.id.mniTrackMe);
+      SwitchCompat sliderTrackMe = itmSendLocation.getActionView().findViewById(R.id.sliderTrackMe);
+      sliderTrackMe.setChecked(mMeViewModel.isTrackingSwitchChecked());
+      sliderTrackMe.setOnCheckedChangeListener(mOnTrackingSwitchChanged);
+      mMniLocationValsVisibility = menu.findItem(R.id.mniLocValsVisibility);
+      int vis = mMeViewModel.getLocationValsVisibility().getValue();
+      mMniLocationValsVisibility.setChecked(vis == View.VISIBLE);
+
+      mMniUserName = menu.findItem(R.id.mniSetUserName);
       return true;
     } catch (InflateException e) {
       Log.e(TAG, "Couldn't inflate toolbar", e);
@@ -202,47 +303,89 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   public boolean onOptionsItemSelected(MenuItem item) {
-    return super.onOptionsItemSelected(item);
+    switch (item.getItemId()) {
+      case R.id.mniLocValsVisibility:
+        mMeViewModel.toggleLocationValsVisibility();
+        return true;
+      case R.id.mniSetUserColor:
+        View lytColorPicker = getLayoutInflater().inflate(R.layout.color_picker_dialog, null);
+        HSLColorPicker colorPicker = lytColorPicker.findViewById(R.id.colorPicker);
+        colorPicker.setColor(ColorUtils.stringToInt(mMeViewModel.getColor()));
+        final AtomicInteger color = new AtomicInteger();
+        colorPicker.setColorSelectionListener(new OnColorSelectionListener() {
+          @Override
+          public void onColorSelected(int i) {
+            color.set(i);
+          }
+
+          @Override
+          public void onColorSelectionStart(int i) { }
+
+          @Override
+          public void onColorSelectionEnd(int i) { }
+        });
+        AlertDialog.Builder bldUserColor = new AlertDialog.Builder(this)
+                .setTitle("New User Color:")
+                .setView(lytColorPicker)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, (dialog, which) ->
+                        mMeViewModel.setColor(ColorUtils.intToString(color.get())));
+        bldUserColor.show();
+        return true;
+      case R.id.mniSetUserName:
+        EditText txtUserId = new EditText(this);
+        ViewGroup.LayoutParams lpUserName = new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+/*        ViewGroup.MarginLayoutParams mlp = new ViewGroup.MarginLayoutParams(lpUserName);
+        int margin = Math.round(TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics()));
+        mlp.setMargins(margin, 0, margin, 0);*/
+        txtUserId.requestLayout();
+        txtUserId.setLayoutParams(lpUserName);
+        txtUserId.setText(mMeViewModel.getUserId());
+
+        AlertDialog.Builder bldUserName = new AlertDialog.Builder(this)
+                .setTitle("New User ID:")
+                .setView(txtUserId)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                  String sUserId = txtUserId.getText().toString();
+                  if (sUserId.length() > 0) mMeViewModel.setUserId(sUserId);
+                });
+        AlertDialog dlgColor = bldUserName.create();
+        dlgColor.getWindow().setLayout(480, 600);
+        dlgColor.show();
+        return true;
+
+      default: return super.onOptionsItemSelected(item);
+    }
   }
 
+  CompoundButton.OnCheckedChangeListener mOnTrackingSwitchChanged =
+          new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+              if (isChecked) mMeViewModel.sendHello();
+              else mMeViewModel.sendGoodbye();
 
-  private View.OnClickListener sendLocation = new View.OnClickListener() {
-    @Override
-    public void onClick(View view) {
-      Location loc = new Location("");
-      loc.setLongitude(-118);
-      loc.setLatitude(34);
-      loc.setAltitude(350);
+              mMeViewModel.setTrackingSwitchChecked(isChecked);
+              setTrackingTimerEnabled(isChecked);
 
-/*      updateLocation(loc).addOnCompleteListener(new OnCompleteListener<String>() {
-        @Override
-        public void onComplete(@NonNull Task<String> task) {
-          if (!task.isSuccessful()) {
-            Exception e = task.getException();
-            if (e instanceof FirebaseFunctionsException) {
-              FirebaseFunctionsException ffe = (FirebaseFunctionsException) e;
-              FirebaseFunctionsException.Code code = ffe.getCode();
-              Object details = ffe.getDetails();
-              String sDetails = details != null ? details.toString() : "";
-              Log.e(TAG, sDetails, ffe);
+              // Disallow changing username while participating in tracking
+              mMniUserName.setEnabled(!isChecked);
             }
-          } else {
-            Log.d(TAG, "task successful");
-          }
-        }
-      });*/
-    }
-  };
+          };
 
   private Pattern ptnTypeField;
   private Pattern ptnUserField;
   private Pattern ptnColorField;
   private Pattern ptnCameraField;
   /** Receive a local broadcast from push message handler */
-  private BroadcastReceiver mLocationsReceiver = new BroadcastReceiver() {
+  private BroadcastReceiver mPushNotificationsReceiver = new BroadcastReceiver() {
+    static final int NOTIFICATION_ID_DEFAULT = 1;
 
     @Override
-    public void onReceive(Context context, Intent intent) {
+    public void onReceive(Context ctx, Intent intent) {
       String sType, sUser, sColor, sLocation;
 
       String sLocationPayload = intent.getStringExtra(getString(R.string.extra_location_update_data));
@@ -250,25 +393,32 @@ public class MainActivity extends AppCompatActivity {
 
       // Parse out the results
       try {
+        sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
+
+        // Not displaying our own location, so discard any updates we sent about ourselves
+        if (sUser.equals(mMeViewModel.getUserId())) return;
+
         sType = TextUtils.matchedGroupVal(ptnTypeField, sLocationPayload);
 
         // Handle differently, depending on message type
-        if (sType.toUpperCase().equals(getString(R.string.typeval_initial_hello).toUpperCase())) {
+        if (sType.toUpperCase().equals(getString(R.string.updatetype_hello).toUpperCase())) {
           // HELLO
-          sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
           // TODO Figure out color representation in notification payloads
           sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
           int iColor = Color.parseColor(sColor);
-          mUserViewModel.createUser(sUser, iColor);
-        } else if (sType.toUpperCase().equals(getString(R.string.typeval_color).toUpperCase())) {
+          mOtherUsersViewModel.createUserGraphic(sUser, iColor);
+          // Respond with color update; a way of saying Hello back
+          mMeViewModel.sendColorUpdate();
+        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_goodbye).toUpperCase())) {
+          // GOODBYE
+          mOtherUsersViewModel.removeUserGraphic(sUser);
+        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_color).toUpperCase())) {
           // RESPONSE TO HELLO; COLOR
-          sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
           sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
           int iColor = Color.parseColor(sColor);
-          mUserViewModel.updateUserColor(sUser, iColor);
-        } else if (sType.toUpperCase().equals(getString(R.string.typeval_location).toUpperCase())) {
+          mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
+        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_location).toUpperCase())) {
           // LOCATION UPDATE
-          sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
           sLocation = TextUtils.matchedGroupVal(ptnCameraField, sLocationPayload);
           // Location is 6 comma-separated values: x,y,z,heading,pitch,roll
           String[] aryLocVals = sLocation.split(",");
@@ -281,11 +431,24 @@ public class MainActivity extends AppCompatActivity {
           double heading = Double.parseDouble(aryLocVals[3]);
           double pitch = Double.parseDouble(aryLocVals[4]);
           double roll = Double.parseDouble(aryLocVals[5]);
-          mUserViewModel.updateUserLocation(sUser, x, y, z, heading, pitch, roll);
+          mOtherUsersViewModel.updateUserGraphicLocation(sUser, x, y, z, heading, pitch, roll);
+
+          // Create notification on local device
+          int id = NOTIFICATION_ID_DEFAULT;
+          if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_hello).toUpperCase())) {
+            id = R.string.update_hello;
+          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_goodbye).toUpperCase())) {
+            id = R.string.update_goodbye;
+          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_color).toUpperCase())) {
+            id = R.string.update_color;
+          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_location).toUpperCase())) {
+            id = R.string.update_location;
+          }
+          AzureNotificationsHandler.createAndroidNotification(ctx, id, sLocationPayload);
         }
       } catch (PayloadParseException exc) {
-        MessageUtils.showToast(context,
-                "Notification error:\n" + exc.getLocalizedMessage(), LENGTH_SHORT);
+        MessageUtils.showToast(ctx,
+                "Notification error: unexpected message.\n" + sLocationPayload + "\n\n" + exc.getLocalizedMessage(), LENGTH_LONG);
         return;
       } catch (UserException e) {
         MessageUtils.showToast(MainActivity.this, e.getLocalizedMessage(), LENGTH_SHORT);
@@ -293,24 +456,6 @@ public class MainActivity extends AppCompatActivity {
     }
   };
 
-  private AsyncTask<String, Void, Exception> UpdateLocationTask (Location loc) {
-    Map<String, Object> data = new HashMap<>();
-    data.put("title", "title");
-    data.put("x", loc.getLongitude());
-    data.put("y", loc.getLatitude());
-    data.put("z", loc.getAltitude());
-
-    return null;
- /*  return  mFunctions.getHttpsCallable(getString(R.string.function_update_location)).call(data)
-       .continueWith(new Continuation<HttpsCallableResult, String>() {
-         @Override
-         public String then(@NonNull Task<HttpsCallableResult> task) throws Exception {
-           String result = (String) task.getResult().getData();
-           return result;
-         }
-       });
-  }*/
-  }
   //Setup the Scene for Augmented Reality
   // Called as part of onCreate()
   private void setUpARScene() {
@@ -320,71 +465,67 @@ public class MainActivity extends AppCompatActivity {
     // Add San Diego scene layer.  This operational data will render on a video feed (eg from the device camera).
     String sPkgPath;
     sPkgPath = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-        getString(R.string.scene_package_filename)).getAbsolutePath();
+            getString(R.string.scene_package_filename)).getAbsolutePath();
 
 //    sPkgPath = getString(R.string.scene_layer_url_yosemite);
     ArcGISSceneLayer lyrScene = new ArcGISSceneLayer(sPkgPath);
-    lyrScene.setCredential(mMe);
+    lyrScene.setCredential(mMyAGOLCredential);
 
     mSceneView.getScene().getOperationalLayers().add(lyrScene);
     lyrScene.addDoneLoadingListener(() -> {
       if (lyrScene.getLoadStatus() == LoadStatus.LOADED) {
         Log.d(TAG, "Layer loaded");
 
-        Envelope env = lyrScene.getFullExtent();
-        Point ptEnvCenter = env.getCenter();
-        ListenableFuture<Double> lf = mSceneView.getScene().getBaseSurface().getElevationAsync(ptEnvCenter);
-        lf.addDoneListener(() -> {
-          Double elev = 3000d;
-          PointBuilder pb = new PointBuilder((Point) GeometryEngine.project(
-                  ptEnvCenter, mSceneView.getSpatialReference()));
+        double x = Double.parseDouble(getString(R.string.startloc_x));
+        double y = Double.parseDouble(getString(R.string.startloc_y));
+        double z = Double.parseDouble(getString(R.string.startloc_z));
 
-          pb.setZ(elev);
-          Log.d(TAG, "Elevation set at " + elev);
-          Point ptCenter = pb.toGeometry();
-          // add a camera and initial camera position
-          completeSetup(new Camera(ptCenter, 0, 0, 0));
-        });
+        // add a camera and initial camera position
+        Camera mCamStart = new Camera(y, x, z, 0, 0, 0);
+
+        // Scene camera controlled by sensors
+        FirstPersonCameraController fpcController = new FirstPersonCameraController();
+        fpcController.setInitialPosition(mCamStart);
+        fpcController.setTranslationFactor(TRANSLATION_FACTOR);
+
+        ARCoreSource arSource = new ARCoreSource(
+                mArSceneView.getScene(), mArSceneView.getSession(), mCamStart, MainActivity.this);
+        fpcController.setDeviceMotionDataSource(arSource);
+        fpcController.setFramerate(FirstPersonCameraController.FirstPersonFramerate.BALANCED);
+        mSceneView.setCameraController(fpcController);
+
+        arSource.startAll();
       } else {
         ArcGISRuntimeException e = lyrScene.getLoadError();
         String sErr = e.getLocalizedMessage();
         if (lyrScene.getLoadError().getCause() != null) sErr += "; " +
-            lyrScene.getLoadError().getCause().getLocalizedMessage();
+                lyrScene.getLoadError().getCause().getLocalizedMessage();
         Log.d(TAG, "Layer not loaded: " + sErr);
         ARUtils.displayError(this, sErr, e);
       }
     });
   }
 
-  private void completeSetup(Camera camStart) {
-    final int TRANSLATION_FACTOR = 5000;
-    // Scene camera controlled by sensors
-    FirstPersonCameraController fpcController = new FirstPersonCameraController();
-    if (camStart != null) fpcController.setInitialPosition(camStart);
-
-    fpcController.setTranslationFactor(TRANSLATION_FACTOR);
-
-    ARCoreSource arSource = new ARCoreSource(mArSceneView.getScene(), mArSceneView.getSession(), camStart, null);
-    fpcController.setDeviceMotionDataSource(arSource);
-
-
-    fpcController.setFramerate(FirstPersonCameraController.FirstPersonFramerate.BALANCED);
-    mSceneView.setCameraController(fpcController);
-
-    arSource.startAll();
-  }
-
   @Override
   protected void onPause(){
+
     mSceneView.pause();
     mArSceneView.pause();
-    // TODO Stop timer for ARCore pose updates
+
+    // Stop listening and broadcasting if switch is on
+    if (mMeViewModel.isTrackingSwitchChecked()) {
+      setTrackingTimerEnabled(false);
+      // Azure hub - this means no need to stop listening to local broadcasts, since
+      // only Azure notifications prompt local broadcasts in this app
+      NotificationsManager.stopHandlingNotifications(this);
+    }
+
 //    releaseCamera();
     super.onPause();
   }
 
   private boolean installRequested;
-    @Override
+  @Override
   protected void onResume(){
     super.onResume();
 
@@ -404,21 +545,31 @@ public class MainActivity extends AppCompatActivity {
       }
     }
 
-    mSceneView.resume();
-
-
     try {
       mArSceneView.resume();
-      // TODO Start a one-second timer for ARCore pose updates
     } catch (CameraNotAvailableException e) {
       MessageUtils.showToast(this, "The camera cannot be acquired. " + e.getLocalizedMessage());
+    }
+
+    mSceneView.resume();
+
+    // Start listening and broadcasting if switch is on
+    if (mMeViewModel.isTrackingSwitchChecked()) {
+      setTrackingTimerEnabled(true);
+      NotificationsManager.handleNotifications(this, getString(R.string.sender_id), AzureNotificationsHandler.class);
     }
   }
 
   @Override
   protected void onDestroy() {
+    // Stop listening for other user location data
+    LocalBroadcastManager.getInstance(this).unregisterReceiver(mPushNotificationsReceiver);
+
     mSceneView.dispose();
     mArSceneView.destroy();
+
+    mMeViewModel.saveMyPrefs();
+
     super.onDestroy();
   }
 /*  private void releaseCamera(){
@@ -427,6 +578,28 @@ public class MainActivity extends AppCompatActivity {
       mCamera = null;
     }
   }*/
+  /**
+   * Check the device to make sure it has the Google Play Services APK. If
+   * it doesn't, display a dialog that allows users to download the APK from
+   * the Google Play Store or enable it in the device's system settings.
+   */
+  private boolean checkPlayServices() {
+    GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+    int resultCode = apiAvailability.isGooglePlayServicesAvailable(this);
+    if (resultCode != ConnectionResult.SUCCESS) {
+      if (apiAvailability.isUserResolvableError(resultCode)) {
+        apiAvailability.getErrorDialog(this, resultCode, PLAY_SERVICES_RESOLUTION_REQUEST)
+                .show();
+      } else {
+        Log.i(TAG, "This device is not supported by Google Play Services.");
+        MessageUtils.showToast(this, "This device is not supported by Google Play Services.");
+        finish();
+      }
+      return false;
+    }
+    return true;
+  }
+
   /**
    * Determine if we're able to use the camera
    */
@@ -477,4 +650,78 @@ public class MainActivity extends AppCompatActivity {
       }
     }
   }
+
+  private Observer<Throwable> mOnSendNotificationException = new Observer<Throwable>() {
+    @Override
+    public void onChanged(@Nullable Throwable throwable) {
+      MessageUtils.showToast(MainActivity.this, throwable.getLocalizedMessage(), LENGTH_LONG);
+    }
+  };
+
+  private Observer<Integer> mOnLocationValsVisibilityChanged = new Observer<Integer>() {
+    @Override
+    public void onChanged(@Nullable Integer vis) {
+      assert vis != null;
+      if (mLytLocationVals != null) mLytLocationVals.setVisibility(vis);
+      if (mMniLocationValsVisibility != null)
+        mMniLocationValsVisibility.setChecked(vis == View.VISIBLE);
+    }
+  };
+
+  @Override
+  public void onSceneUpdate(Scene scene, Session session, Frame frame, FrameTime frameTime) {
+/*    // Send a location-update notification if...
+    // 1. This is a new ARCore frame
+    // 2. ARCore is currently tracking
+    // 3. The update timer has signaled that it's okay to send another update
+    if ((mLastFrameTime == null || (frameTime.getStartSeconds() > mLastFrameTime))
+        && mIsTimeToUpdateLocation
+        && frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
+      Pose pose = frame.getCamera().getPose();
+
+      Point ptUpdated = new Point(mStartPtWM.getX() + (pose.tx() * TRANSLATION_FACTOR),
+              mStartPtWM.getY() + (pose.ty() * TRANSLATION_FACTOR),
+              mStartPtWM.getZ() + (pose.tz() * TRANSLATION_FACTOR),
+              SpatialReferences.getWebMercator());
+      Camera cam = new Camera(
+              ptUpdated,
+              mSceneView.getCurrentViewpointCamera().getHeading(),
+              mSceneView.getCurrentViewpointCamera().getPitch(),
+              mSceneView.getCurrentViewpointCamera().getRoll()
+      );
+      mMeViewModel.setCamera(cam);
+
+      mIsTimeToUpdateLocation = false;
+    }
+    // Make a note of the last time a frame was evaluated
+    mLastFrameTime = frameTime.getStartSeconds();*/
+    if (frame.getCamera().getTrackingState() == TrackingState.TRACKING
+        && mLytLocationVals.getVisibility() == View.VISIBLE) {
+      Camera cam = mSceneView.getCurrentViewpointCamera();
+      mTxtLocX.setText(getString(R.string.loc_x, cam.getLocation().getX()));
+      mTxtLocY.setText(getString(R.string.loc_y, cam.getLocation().getY()));
+      mTxtLocZ.setText(getString(R.string.loc_z, cam.getLocation().getZ()));
+    }
+  }
+
+  @Override
+  public void onSceneError(Throwable e) {
+ /*   Log.w(TAG, "Error on frame update", e);
+    MessageUtils.showToast(MainActivity.this, e.getLocalizedMessage(), LENGTH_LONG);*/
+  }
+
+  private void setTrackingTimerEnabled(boolean bEnableTimer) {
+    if (bEnableTimer) { // Start the location-update timer
+      mTimerSendUpdates = new Timer();
+      mTimerSendUpdates.schedule(mTTUpdateLocation, 0, UPDATE_PERIOD_MS);
+    } else
+      mTimerSendUpdates.cancel();
+  }
+
+  private TimerTask mTTUpdateLocation = new TimerTask() {
+    @Override
+    public void run() {
+      mMeViewModel.setCamera(mSceneView.getCurrentViewpointCamera());
+    }
+  };
 }

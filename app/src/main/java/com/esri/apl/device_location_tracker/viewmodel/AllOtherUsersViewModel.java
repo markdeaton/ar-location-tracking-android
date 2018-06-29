@@ -7,13 +7,16 @@ import android.support.annotation.NonNull;
 
 import com.esri.apl.device_location_tracker.R;
 import com.esri.apl.device_location_tracker.exception.UserException;
+import com.esri.apl.device_location_tracker.util.MessageUtils;
 import com.esri.arcgisruntime.geometry.Point;
 import com.esri.arcgisruntime.mapping.view.Graphic;
 import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
 import com.esri.arcgisruntime.symbology.SceneSymbol;
 import com.esri.arcgisruntime.symbology.SimpleMarkerSceneSymbol;
 
-public class UserViewModel extends AndroidViewModel {
+import static android.widget.Toast.LENGTH_LONG;
+
+public class AllOtherUsersViewModel extends AndroidViewModel {
   private final static String TAG = "UserViewModel";
   private final static int SYMBOL_SIZE = 14;
 
@@ -24,11 +27,11 @@ public class UserViewModel extends AndroidViewModel {
   /** Graphics overlay for displaying participating users */
   private GraphicsOverlay _graphics = new GraphicsOverlay();
 
-  public UserViewModel(@NonNull Application application) {
+  public AllOtherUsersViewModel(@NonNull Application application) {
     super(application);
   }
 
-  public void createUser(@NonNull String userid, @ColorInt int color) throws UserException {
+  public void createUserGraphic(@NonNull String userid, @ColorInt int color) throws UserException {
     if (userIndex(userid) > -1) throw new UserException("User " + userid + " already exists.");
 
     Graphic g = new Graphic();
@@ -38,7 +41,7 @@ public class UserViewModel extends AndroidViewModel {
 
     _graphics.getGraphics().add(g);
   }
-  public void updateUserColor(@NonNull String userid, @ColorInt int color) throws UserException {
+  public void updateUserGraphicColor(@NonNull String userid, @ColorInt int color) throws UserException {
     int iUserIndex = userIndex(userid);
     if (iUserIndex <= -1) throw new UserException("User " + userid + " does not exist.");
 
@@ -47,8 +50,8 @@ public class UserViewModel extends AndroidViewModel {
             (SimpleMarkerSceneSymbol) _graphics.getGraphics().get(iUserIndex).getSymbol();
     sym.setColor(color);
   }
-  public void updateUserLocation(@NonNull String userid, double x, double y, double z, double heading,
-                                 double pitch, double roll) throws UserException {
+  public void updateUserGraphicLocation(@NonNull String userid, double x, double y, double z, double heading,
+                                        double pitch, double roll) throws UserException {
     int iUserIndex = userIndex(userid);
     if (iUserIndex <= -1) throw new UserException("User " + userid + " does not exist.");
 
@@ -59,6 +62,15 @@ public class UserViewModel extends AndroidViewModel {
     sym.setHeading(heading); sym.setPitch(pitch); sym.setRoll(roll);
 
     g.setVisible(true);
+  }
+
+  public void removeUserGraphic(String userid) throws UserException {
+    int iUserIndex = userIndex(userid);
+    if (iUserIndex <= -1) throw new UserException("User " + userid + " does not exist.");
+
+    _graphics.getGraphics().remove(iUserIndex);
+
+    MessageUtils.showToast(getApplication(), userid + " has left the app.", LENGTH_LONG);
   }
 
   /**

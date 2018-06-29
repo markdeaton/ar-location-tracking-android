@@ -7,5 +7,5 @@ import com.google.ar.sceneform.Scene;
 
 public interface SceneUpdateCallable {
     void onSceneUpdate(Scene scene, Session session, Frame frame, FrameTime frameTime);
-    void onSceneError(Exception e);
+    void onSceneError(Throwable e);
 }

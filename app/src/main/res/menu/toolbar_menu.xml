@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item android:id="@+id/myVisSwitch"
-          android:title="Show Me"
+    <item android:id="@+id/mniLocValsVisibility"
+        android:title="Show Location"
+        android:checkable="true"
+        app:showAsAction="never"/>
+    <item android:id="@+id/mniSetUserName"
+        android:title="Set User ID"
+        app:showAsAction="never"/>
+    <item android:id="@+id/mniSetUserColor"
+        android:title="Set User Color"
+        app:showAsAction="never"/>
+    <item android:id="@+id/mniTrackMe"
+          android:title="Tracking"
           app:showAsAction="always"
-          android:actionLayout="@layout/vis_switch"
-          android:visible="false"
+          app:actionLayout="@layout/vis_switch"
+          android:visible="true"
           />
 </menu>

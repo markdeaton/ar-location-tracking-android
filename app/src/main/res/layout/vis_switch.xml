@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="horizontal">
 
-    <Switch
-        android:id="@+id/btnShowMe"
+    <android.support.v7.widget.SwitchCompat
+        android:id="@+id/sliderTrackMe"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Show Me"
+        android:layout_centerVertical="true"
+        android:text="Tracking"
+        app:switchPadding="8dp"
+        app:switchMinWidth="50dp"
         />
 
 
