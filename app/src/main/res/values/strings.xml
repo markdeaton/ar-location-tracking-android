@@ -18,16 +18,20 @@
     <string name="log_token">Log Token</string>-->
 
     <string name="msg_subscribed">Subscribed to APL_Location_Updates topic</string>
-    <string name="msg_token_fmt" translatable="false">InstanceID Token: %1$s</string>
+    <string name="msg_token_fmt">InstanceID Token: %1$s</string>
 
     <string name="default_notification_channel_id" translatable="false">fcm_default_channel</string>
     <string name="default_notification_group_id" translatable="false">app_notification_group_id</string>
+    <string name="hello_notification_group_id" translatable="false">hello_notification_group_id</string>
+    <string name="color_notification_group_id" translatable="false">color_notification_group_id</string>
+    <string name="location_notification_group_id" translatable="false">location_notification_group_id</string>
+    <string name="goodbye_notification_group_id" translatable="false">goodbye_notification_group_id</string>
     <!--Note: the above pairs with a commented-out <meta-data> tag in the manifest.-->
     <!--
         This is the name that users will see when interacting with this channel.
         It should describe the category of notifications that will be sent through this channel
      -->
-    <string name="default_notification_channel_name" translatable="false">Location Updates</string>
+    <string name="default_notification_channel_name">Location Updates</string>
 
     <!-- Start location in the real world -->
     <item type="string" format="float" name="startloc_x">-119.5329397</item>
@@ -46,7 +50,7 @@
     <!-- Find values in notification payload text -->
     <!--Capture an expression starting with a tilde and ending with either another tilde or the end of the string-->
     <string name="act_location_update_available">com.esri.apl.locationsharing.receiver.location_updates</string>
-    <string name="extra_location_update_data">location_payload</string>
+    <string name="extra_notification_update_data">push_payload</string>
 
     <string name="updatetype_hello" translatable="false">&TYPE_HELLO;</string>
     <string name="updatetype_color" translatable="false">&TYPE_COLOR;</string>
@@ -70,9 +74,9 @@
     <string name="push_msg_allformats" translatable="false">{"\"data\"":{"\"message\"":"\"%1$s\""}, "\"aps\"":{"\"alert\"":"\"%1$s\""}}</string>
 
     <!--Reporting X, Y, Z-->
-    <string name="loc_x" translatable="false">X: %1$.3f</string>
-    <string name="loc_y" translatable="false">Y: %1$.3f</string>
-    <string name="loc_z" translatable="false">Z: %1$.3f</string>
+    <string name="loc_x">X: %1$.3f</string>
+    <string name="loc_y">Y: %1$.3f</string>
+    <string name="loc_z">Z: %1$.3f</string>
 
     <!--Graphics attribute fields-->
     <string name="attr_userid" translatable="false">user_id</string>

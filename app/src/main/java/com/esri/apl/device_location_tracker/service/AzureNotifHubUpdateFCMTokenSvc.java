@@ -72,9 +72,10 @@ public class AzureNotifHubUpdateFCMTokenSvc extends IntentService {
         Log.d(TAG, "Previously Registered Successfully - RegId : " + regID);
       }
     } catch (Exception e) {
-      Log.e(TAG, "Failed to complete registration", e);
-      // If an exception happens while fetching the new token or updating our registration data
-      // on a third-party server, this ensures that we'll attempt the update at a later time.
+      Log.w(TAG, "Failed to complete registration", e);
+/*      MessageUtils.showToast(getApplicationContext(),
+              "Failed to complete push notification registration. Please exit, clear, and restart this app.\n" + e.getLocalizedMessage());*/
+      // If token obtained was null, it should be updated when available in FirebaseInstanceIDService onTokenRefresh()
     }
   }
 }

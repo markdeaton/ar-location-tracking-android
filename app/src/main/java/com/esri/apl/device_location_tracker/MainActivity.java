@@ -27,7 +27,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -44,6 +43,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -64,6 +64,8 @@ import com.esri.arcgisruntime.loadable.LoadStatus;
 import com.esri.arcgisruntime.mapping.ArcGISScene;
 import com.esri.arcgisruntime.mapping.view.Camera;
 import com.esri.arcgisruntime.mapping.view.FirstPersonCameraController;
+import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
+import com.esri.arcgisruntime.mapping.view.LayerSceneProperties;
 import com.esri.arcgisruntime.mapping.view.SceneView;
 import com.esri.arcgisruntime.security.AuthenticationManager;
 import com.esri.arcgisruntime.security.DefaultAuthenticationChallengeHandler;
@@ -210,7 +212,10 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
 
     mSceneView = findViewById(R.id.scene_view);
     mSceneView.setAttributionTextVisible(false);
-    mSceneView.getGraphicsOverlays().add(mOtherUsersViewModel.getGraphicsOverlay());
+
+    GraphicsOverlay ovl = mOtherUsersViewModel.getGraphicsOverlay();
+    ovl.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.ABSOLUTE);
+    mSceneView.getGraphicsOverlays().add(ovl);
 
     // Enable AR for scene view.
     mSceneView.setARModeEnabled(true);
@@ -279,6 +284,12 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     // Listen to mMeViewModel.observableError for send-notification exceptions
     mMeViewModel.observableException.observe(this, mOnSendNotificationException);
 
+    // Manual send-updates button
+    Button btnLocUpdates = findViewById(R.id.btnSendLocation);
+    btnLocUpdates.setOnClickListener((view) -> {
+      mMeViewModel.setCamera(mSceneView.getCurrentViewpointCamera());
+//      mMeViewModel.setCamera(new Camera(37.746, -119.533, 3000, 0, 0, 0));
+    });
   }
 
   @Override
@@ -362,19 +373,21 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
   }
 
   CompoundButton.OnCheckedChangeListener mOnTrackingSwitchChanged =
-          new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-              if (isChecked) mMeViewModel.sendHello();
-              else mMeViewModel.sendGoodbye();
+    new CompoundButton.OnCheckedChangeListener() {
+      @Override
+      public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+        if (isChecked) mMeViewModel.sendHello();
+        else mMeViewModel.sendGoodbye();
 
-              mMeViewModel.setTrackingSwitchChecked(isChecked);
-              setTrackingTimerEnabled(isChecked);
+        mMeViewModel.setTrackingSwitchChecked(isChecked);
+        setTrackingTimerEnabled(isChecked);
 
-              // Disallow changing username while participating in tracking
-              mMniUserName.setEnabled(!isChecked);
-            }
-          };
+        // Disallow changing username while participating in tracking
+        mMniUserName.setEnabled(!isChecked);
+
+        mOtherUsersViewModel.stopTracking();
+      }
+    };
 
   private Pattern ptnTypeField;
   private Pattern ptnUserField;
@@ -386,72 +399,81 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
 
     @Override
     public void onReceive(Context ctx, Intent intent) {
-      String sType, sUser, sColor, sLocation;
+      String sType = null, sUser, sColor, sLocation;
 
-      String sLocationPayload = intent.getStringExtra(getString(R.string.extra_location_update_data));
+      String sLocationPayload = intent.getStringExtra(getString(R.string.extra_notification_update_data));
+
       if (sLocationPayload.length() <= 0) return;
 
       // Parse out the results
       try {
         sUser = TextUtils.matchedGroupVal(ptnUserField, sLocationPayload);
-
-        // Not displaying our own location, so discard any updates we sent about ourselves
-        if (sUser.equals(mMeViewModel.getUserId())) return;
-
         sType = TextUtils.matchedGroupVal(ptnTypeField, sLocationPayload);
 
-        // Handle differently, depending on message type
-        if (sType.toUpperCase().equals(getString(R.string.updatetype_hello).toUpperCase())) {
-          // HELLO
-          // TODO Figure out color representation in notification payloads
-          sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
-          int iColor = Color.parseColor(sColor);
-          mOtherUsersViewModel.createUserGraphic(sUser, iColor);
-          // Respond with color update; a way of saying Hello back
-          mMeViewModel.sendColorUpdate();
-        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_goodbye).toUpperCase())) {
-          // GOODBYE
-          mOtherUsersViewModel.removeUserGraphic(sUser);
-        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_color).toUpperCase())) {
-          // RESPONSE TO HELLO; COLOR
-          sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
-          int iColor = Color.parseColor(sColor);
-          mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
-        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_location).toUpperCase())) {
-          // LOCATION UPDATE
-          sLocation = TextUtils.matchedGroupVal(ptnCameraField, sLocationPayload);
-          // Location is 6 comma-separated values: x,y,z,heading,pitch,roll
-          String[] aryLocVals = sLocation.split(",");
-          int aryLen = aryLocVals.length;
-          if (aryLen < 6) throw new PayloadParseException(
-                  "Location has " + aryLen + " values instead of 6");
-          double x = Double.parseDouble(aryLocVals[0]);
-          double y = Double.parseDouble(aryLocVals[1]);
-          double z = Double.parseDouble(aryLocVals[2]);
-          double heading = Double.parseDouble(aryLocVals[3]);
-          double pitch = Double.parseDouble(aryLocVals[4]);
-          double roll = Double.parseDouble(aryLocVals[5]);
-          mOtherUsersViewModel.updateUserGraphicLocation(sUser, x, y, z, heading, pitch, roll);
+        // Ignore notifications if they're about ourselves
+        if (sUser.equals(mMeViewModel.getUserId())) return;
 
-          // Create notification on local device
-          int id = NOTIFICATION_ID_DEFAULT;
-          if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_hello).toUpperCase())) {
-            id = R.string.update_hello;
-          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_goodbye).toUpperCase())) {
-            id = R.string.update_goodbye;
-          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_color).toUpperCase())) {
-            id = R.string.update_color;
-          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_location).toUpperCase())) {
-            id = R.string.update_location;
+        // Don't process the message if we're not tracking
+        if (mMeViewModel.isTrackingSwitchChecked()) {
+          // Handle differently, depending on message type
+          if (sType.toUpperCase().equals(getString(R.string.updatetype_hello).toUpperCase())) {
+            // HELLO
+            sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
+            int iColor = ColorUtils.stringToInt(sColor);
+            mOtherUsersViewModel.createUserGraphics(sUser, iColor);
+            // Respond with color update; a way of saying Hello back
+            mMeViewModel.sendColorUpdate();
+          } else if (sType.toUpperCase().equals(getString(R.string.updatetype_goodbye).toUpperCase())) {
+            // GOODBYE
+            mOtherUsersViewModel.removeUserGraphics(sUser);
+          } else if (sType.toUpperCase().equals(getString(R.string.updatetype_color).toUpperCase())) {
+            // COLOR
+            sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
+            int iColor = ColorUtils.stringToInt(sColor);
+            mOtherUsersViewModel.updateUserGraphicsColor(sUser, iColor);
+          } else if (sType.toUpperCase().equals(getString(R.string.updatetype_location).toUpperCase())) {
+            // LOCATION UPDATE
+            sLocation = TextUtils.matchedGroupVal(ptnCameraField, sLocationPayload);
+            // Location is 6 comma-separated values: x,y,z,heading,pitch,roll
+            String[] aryLocVals = sLocation.split(",");
+            int aryLen = aryLocVals.length;
+            if (aryLen < 6) throw new PayloadParseException(
+                    "Location has " + aryLen + " values instead of 6");
+            double x = Double.parseDouble(aryLocVals[0]);
+            double y = Double.parseDouble(aryLocVals[1]);
+            double z = Double.parseDouble(aryLocVals[2]);
+            double heading = Double.parseDouble(aryLocVals[3]);
+            double pitch = Double.parseDouble(aryLocVals[4]);
+            double roll = Double.parseDouble(aryLocVals[5]);
+            mOtherUsersViewModel.updateUserGraphicsLocation(sUser, x, y, z, heading, pitch, roll);
           }
-          AzureNotificationsHandler.createAndroidNotification(ctx, id, sLocationPayload);
         }
-      } catch (PayloadParseException exc) {
+
+        // Create notification on local device
+        int msgId = NOTIFICATION_ID_DEFAULT;
+        String groupId = getString(R.string.default_notification_group_id);
+        if (sType == null || sType.length() == 0) {
+          // Use defaults already set
+        } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_hello).toUpperCase())) {
+          msgId = R.string.update_hello;
+          groupId = getString(R.string.hello_notification_group_id);
+        } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_goodbye).toUpperCase())) {
+          msgId = R.string.update_goodbye;
+          groupId = getString(R.string.goodbye_notification_group_id);
+        } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_color).toUpperCase())) {
+          msgId = R.string.update_color;
+          groupId = getString(R.string.color_notification_group_id);
+        } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_location).toUpperCase())) {
+          msgId = R.string.update_location;
+          groupId = getString(R.string.location_notification_group_id);
+        }
+        AzureNotificationsHandler.createAndroidNotification(ctx, sLocationPayload, null, null);      } catch (PayloadParseException exc) {
         MessageUtils.showToast(ctx,
                 "Notification error: unexpected message.\n" + sLocationPayload + "\n\n" + exc.getLocalizedMessage(), LENGTH_LONG);
-        return;
       } catch (UserException e) {
         MessageUtils.showToast(MainActivity.this, e.getLocalizedMessage(), LENGTH_SHORT);
+      } finally {
+        // Put notification code here if you also want notifications from the local device
       }
     }
   };
@@ -568,7 +590,7 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     mSceneView.dispose();
     mArSceneView.destroy();
 
-    mMeViewModel.saveMyPrefs();
+//    mMeViewModel.saveMyPrefs(); // Done by the ViewModel
 
     super.onDestroy();
   }
@@ -695,6 +717,8 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     }
     // Make a note of the last time a frame was evaluated
     mLastFrameTime = frameTime.getStartSeconds();*/
+
+    // Just update the location bar, if it's visible
     if (frame.getCamera().getTrackingState() == TrackingState.TRACKING
         && mLytLocationVals.getVisibility() == View.VISIBLE) {
       Camera cam = mSceneView.getCurrentViewpointCamera();
@@ -706,22 +730,26 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
 
   @Override
   public void onSceneError(Throwable e) {
- /*   Log.w(TAG, "Error on frame update", e);
-    MessageUtils.showToast(MainActivity.this, e.getLocalizedMessage(), LENGTH_LONG);*/
+    Log.w(TAG, "Error on frame update", e);
+//    MessageUtils.showToast(MainActivity.this, e.getLocalizedMessage(), LENGTH_LONG);
   }
 
   private void setTrackingTimerEnabled(boolean bEnableTimer) {
-    if (bEnableTimer) { // Start the location-update timer
-      mTimerSendUpdates = new Timer();
-      mTimerSendUpdates.schedule(mTTUpdateLocation, 0, UPDATE_PERIOD_MS);
-    } else
-      mTimerSendUpdates.cancel();
+    try {
+      if (bEnableTimer) { // Start the location-update timer
+        mTimerSendUpdates = new Timer();
+        mTimerSendUpdates.schedule(new TTUpdateLocation(), 0, UPDATE_PERIOD_MS);
+      } else
+        mTimerSendUpdates.cancel();
+    } catch (Exception e) {
+      Log.e(TAG, "Error with the tracking timer", e);
+    }
   }
 
-  private TimerTask mTTUpdateLocation = new TimerTask() {
+  private class TTUpdateLocation extends TimerTask {
     @Override
     public void run() {
-      mMeViewModel.setCamera(mSceneView.getCurrentViewpointCamera());
+//      mMeViewModel.setCamera(mSceneView.getCurrentViewpointCamera());
     }
-  };
+  }
 }

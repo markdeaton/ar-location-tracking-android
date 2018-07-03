@@ -12,6 +12,8 @@ import com.esri.apl.device_location_tracker.MainActivity;
 import com.esri.apl.device_location_tracker.R;
 import com.microsoft.windowsazure.notifications.NotificationsHandler;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class AzureNotificationsHandler extends NotificationsHandler {
   private static final String TAG = "NotificationHandler";
 
@@ -22,12 +24,13 @@ public class AzureNotificationsHandler extends NotificationsHandler {
     // Notify the main activity of updated information via broadcast
     Intent intent = new Intent();
     intent.setAction(context.getString(R.string.act_location_update_available));
-    intent.putExtra(context.getString(R.string.extra_location_update_data), sLocationPayload);
+    intent.putExtra(context.getString(R.string.extra_notification_update_data), sLocationPayload);
     // Send only to local process
     LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
   }
 
-  public static void createAndroidNotification(Context ctx, int id, String msg) {
+  private static final AtomicInteger notificationId = new AtomicInteger(Integer.MIN_VALUE);
+  public static void createAndroidNotification(Context ctx, String msg, Integer msgId, String groupId) {
 
     Intent intent = new Intent(ctx, MainActivity.class);
     intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -39,10 +42,13 @@ public class AzureNotificationsHandler extends NotificationsHandler {
             intent, PendingIntent.FLAG_ONE_SHOT);
 
     String sChannelId = ctx.getString(R.string.default_notification_channel_id);
-    String sGroupId = ctx.getString(R.string.default_notification_group_id);
+
+    int iMsgId = msgId != null ? msgId :  notificationId.getAndIncrement();
+    String sGroupId = groupId != null ?
+            groupId : ctx.getString(R.string.default_notification_group_id);
 
     NotificationCompat.Builder mBuilder =
-        new NotificationCompat.Builder(ctx, ctx.getString(R.string.default_notification_channel_id))
+        new NotificationCompat.Builder(ctx, null) //ctx.getString(R.string.default_notification_channel_id))
                 .setSmallIcon(R.drawable.ic_users_update)
                 .setContentTitle("User Update")
                 .setStyle(new NotificationCompat.BigTextStyle()
@@ -52,6 +58,6 @@ public class AzureNotificationsHandler extends NotificationsHandler {
                 .setContentText(msg);
 
     mBuilder.setContentIntent(contentIntent);
-    nmgr.notify(id, mBuilder.build());
+    nmgr.notify(iMsgId, mBuilder.build());
   }
 }

@@ -9,4 +9,8 @@ public class ColorUtils {
   public static int stringToInt(String color) {
     return Color.parseColor(color);
   }
+  public static int inverseColor(int color) {
+    return Color.rgb(255-Color.red(color), 255-Color.green(color), 255-Color.blue(color));
+  }
+
 }

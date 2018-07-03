@@ -35,10 +35,11 @@ public class MeViewModel extends AndroidViewModel {
   private final static String PP_ANDROID = "gcm";
   private final static String PP_IOS = "apple";
 
-  // Property fields
+  // Property fields (these won't propagate back to the user interface)
   private String _color;
   @NonNull private String _userId;
   private Camera _camera;
+  // TODO This probably should propagate to UI as LiveData
   private boolean trackingSwitchChecked = false;
 
   private MutableLiveData<Integer> _locationValsVisibility = new MutableLiveData<>();
@@ -48,7 +49,6 @@ public class MeViewModel extends AndroidViewModel {
     super(application);
 
     // Get a random color as the default
-    // TODO add color picker widget to let the user change color
     @ColorInt int randomColor = (int) (Math.random() * Math.pow(16, 6));
     String sColor = ColorUtils.intToString(randomColor);
     // Try to retrieve previous values from settings
@@ -61,7 +61,19 @@ public class MeViewModel extends AndroidViewModel {
     _locationValsVisibility.postValue(locationValsVisibility);
   }
 
-  public void saveMyPrefs() {
+  @Override
+  protected void onCleared() {
+    super.onCleared();
+
+    if (isTrackingSwitchChecked()) {
+      sendGoodbye();
+      setTrackingSwitchChecked(false);
+    }
+
+    saveMyPrefs();
+  }
+
+  private void saveMyPrefs() {
     Context app = getApplication();
 
     SharedPreferences.Editor prefsEd = PreferenceManager.getDefaultSharedPreferences(app).edit();
@@ -88,6 +100,7 @@ public class MeViewModel extends AndroidViewModel {
   }
 
   public void setTrackingSwitchChecked(boolean trackingSwitchStatus) {
+    // TODO if trackingSwitchChecked becomes LiveData, post an update instead
     if (this.trackingSwitchChecked != trackingSwitchStatus)
       this.trackingSwitchChecked = trackingSwitchStatus;
   }
@@ -98,20 +111,20 @@ public class MeViewModel extends AndroidViewModel {
 
   public void setColor(String color) {
     this._color = color;
+    if (isTrackingSwitchChecked()) sendColorUpdate();
   }
 
   @NonNull public String getUserId() {
     return _userId;
   }
 
-  /** TODO Don't allow setting userId while participating in tracking **/
   public void setUserId(@NonNull String userId) {
     this._userId = userId;
   }
 
   public void setCamera(Camera camera) {
     this._camera = camera;
-    sendLocationUpdate();
+    if (isTrackingSwitchChecked()) sendLocationUpdate();
   }
 
   public void sendHello() {
