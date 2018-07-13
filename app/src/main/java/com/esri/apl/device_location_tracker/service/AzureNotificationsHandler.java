@@ -30,7 +30,7 @@ public class AzureNotificationsHandler extends NotificationsHandler {
   }
 
   private static final AtomicInteger notificationId = new AtomicInteger(Integer.MIN_VALUE);
-  public static void createAndroidNotification(Context ctx, String msg, Integer msgId, String groupId) {
+  public static void createAndroidNotification(Context ctx, String msg, String title, Integer msgId, String groupId) {
 
     Intent intent = new Intent(ctx, MainActivity.class);
     intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -50,7 +50,7 @@ public class AzureNotificationsHandler extends NotificationsHandler {
     NotificationCompat.Builder mBuilder =
         new NotificationCompat.Builder(ctx, null) //ctx.getString(R.string.default_notification_channel_id))
                 .setSmallIcon(R.drawable.ic_users_update)
-                .setContentTitle("User Update")
+                .setContentTitle(title)
                 .setStyle(new NotificationCompat.BigTextStyle()
                         .bigText(msg))
                 .setChannelId(sChannelId)

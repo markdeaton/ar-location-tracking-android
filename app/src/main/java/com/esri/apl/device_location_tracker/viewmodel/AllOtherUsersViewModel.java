@@ -2,16 +2,19 @@ package com.esri.apl.device_location_tracker.viewmodel;
 
 import android.app.Application;
 import android.arch.lifecycle.AndroidViewModel;
+import android.graphics.Color;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.esri.apl.device_location_tracker.R;
-import com.esri.apl.device_location_tracker.exception.UserException;
 import com.esri.apl.device_location_tracker.util.ColorUtils;
 import com.esri.apl.device_location_tracker.util.MessageUtils;
 import com.esri.arcgisruntime.geometry.Point;
+import com.esri.arcgisruntime.geometry.PointBuilder;
+import com.esri.arcgisruntime.geometry.SpatialReferences;
 import com.esri.arcgisruntime.mapping.view.Graphic;
 import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
 import com.esri.arcgisruntime.symbology.SceneSymbol;
@@ -32,111 +35,152 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
 
   public AllOtherUsersViewModel(@NonNull Application application) { super(application); }
 
-  /** Create a user graphic and label for the given userId */
-  public void createUserGraphics(@NonNull String userid, @ColorInt int color) throws UserException {
-    Graphic gMkr = findUserLocationGraphic(userid);
+  /** Create a hidden user graphic for the given userId and location */
+
+  private Graphic newHiddenUserGraphic(@NonNull String userId,
+                                       @Nullable @ColorInt Integer color,
+                                       @Nullable Point ptUserLoc) {
+    Graphic gUser = new Graphic(); gUser.setVisible(false);
+
     String attrId = getApplication().getString(R.string.attr_userid);
-    if (gMkr != null) throw new UserException("User " + userid + " already exists.");
-    gMkr = new Graphic();
-    gMkr.setSymbol(createMarkerSymbol(color));
-    gMkr.getAttributes().put(attrId, userid);
-    gMkr.setVisible(false);
+    gUser.getAttributes().put(attrId, userId);
 
-    _graphics.getGraphics().add(gMkr);
+    if (color != null) {
+      SimpleMarkerSceneSymbol sym = createMarkerSymbol(color);
+      gUser.setSymbol(sym);
+    }
+    if (ptUserLoc != null) {
+      gUser.setGeometry(ptUserLoc);
+    }
 
-    // Note: a seeming bug prevents text symbols from showing up when done here.
-    // Delete and re-add them in location update. (Color update seems to work fine.)
-/*    Graphic gText = findUserLabelGraphic(userid);
-    if (gText != null) throw new UserException("User label " + userid + " already exists.");
-    gText = new Graphic();
-    TextSymbol symText = createTextSymbol(userid, color);
-    gText.setSymbol(symText);
-    gText.getAttributes().put(attrId, userid);
-    gText.setVisible(true);
-
-    _graphics.getGraphics().add(gText);*/
+    return gUser;
   }
 
-  private Graphic createUserLabelGraphic(String userid, @ColorInt int color,
-                                         double x, double y, double z) {
-    Graphic gText = new Graphic();
+  /** Create a user label graphic, if needed, and add it to the graphics layer.
+   * Assumes that the supplied user graphic has a location.
+   * @param gUser Graphic denoting the user's position, heading, attitude, etc.
+   */
+  private void showUserLabelGraphic(Graphic gUser) {
     String attrId = getApplication().getString(R.string.attr_userid);
-    TextSymbol symText = createTextSymbol(userid, color);
-    gText.setSymbol(symText);
-    gText.getAttributes().put(attrId, userid);
-    Point ptLbl = new Point(x, y, z + (SYMBOL_HEIGHT));
-    gText.setGeometry(ptLbl);
 
-    return gText;
+    String sUserId = gUser.getAttributes().get(attrId).toString();
+    Graphic gLabel = findUserLabelGraphic(sUserId);
+
+    if (gLabel == null) gLabel = new Graphic();
+    else _graphics.getGraphics().remove(gLabel);
+
+    int color = ((SimpleMarkerSceneSymbol)gUser.getSymbol()).getColor();
+    TextSymbol symText = createTextSymbol(sUserId, color);
+    gLabel.setSymbol(symText);
+
+    gLabel.getAttributes().put(attrId, sUserId);
+
+    Point ptUser = (Point) gUser.getGeometry();
+    PointBuilder pbLbl = new PointBuilder(ptUser);
+    pbLbl.setZ(ptUser.getZ() + (SYMBOL_HEIGHT));
+    gLabel.setGeometry(pbLbl.toGeometry());
+
+    _graphics.getGraphics().add(gLabel);
   }
 
-  public void updateUserGraphicsColor(@NonNull String userid, @ColorInt int color) throws UserException {
-    Graphic gMkr = findUserLocationGraphic(userid); Graphic gLbl = findUserLabelGraphic(userid);
-    if (gMkr == null || gLbl == null) {
-      Log.d(TAG, "User " + userid + " doesn't exist; creating graphic");
-      createUserGraphics(userid, color);
-    } else {
-      // todo verify that this will change color on screen
-      SimpleMarkerSceneSymbol symMkr = (SimpleMarkerSceneSymbol)gMkr.getSymbol();
-      symMkr.setColor(color);
-      TextSymbol symLbl = (TextSymbol) gLbl.getSymbol();
-      symLbl.setColor(color);
-      symLbl.setOutlineColor(ColorUtils.inverseColor(color));
+  private void hideUserLabelGraphic(Graphic gUser) {
+    String attrId = getApplication().getString(R.string.attr_userid);
+    String sUserId = gUser.getAttributes().get(attrId).toString();
+
+    Graphic gLabel = findUserLabelGraphic(sUserId);
+    if (gLabel != null) _graphics.getGraphics().remove(gLabel);
+  }
+  public void updateUserGraphicColor(@NonNull String userId, @ColorInt int color) {
+    Graphic gUser = findUserLocationGraphic(userId);
+    if (gUser == null) { // User graphic doesn't exist yet
+      Log.d(TAG, "User " + userId + " doesn't exist; creating graphic");
+      // Create a hidden graphic
+      gUser = newHiddenUserGraphic(userId, null, null);
+      _graphics.getGraphics().add(gUser);
+    }
+
+    // Update the color
+    if (gUser.getSymbol() == null) gUser.setSymbol(createMarkerSymbol(color));
+    else ((SimpleMarkerSceneSymbol)gUser.getSymbol()).setColor(color);
+
+    if (gUser.getGeometry() != null) {
+      // User exists with geometry and color, so show the graphic
+      gUser.setVisible(true);
+      showUserLabelGraphic(gUser);
     }
   }
 
   /** Update the location of the user marker and label. Supplied coords are for the center of the marker.
    *
-   * @param userid User's ID
+   * @param userId User's ID
    * @param x Longitude
    * @param y Latitude
    * @param z Altitude
    * @param heading Heading
    * @param pitch Pitch
    * @param roll Roll
-   * @throws UserException
    */
-  public void updateUserGraphicsLocation(@NonNull String userid, double x, double y, double z, double heading,
-                                         double pitch, double roll) throws UserException {
-    Graphic gMkr = findUserLocationGraphic(userid);
-    if (gMkr == null) throw new UserException("User " + userid + " does not exist.");
-    Point ptMkr = new Point(x, y, z);
-    gMkr.setGeometry(ptMkr);
-    SimpleMarkerSceneSymbol sym = (SimpleMarkerSceneSymbol) gMkr.getSymbol();
-    sym.setHeading(heading); sym.setPitch(pitch); sym.setRoll(roll);
-    gMkr.setVisible(true);
+  public void updateUserGraphicLocation(@NonNull String userId, double x, double y, double z, double heading,
+                                        double pitch, double roll) {
+    Graphic gUser = findUserLocationGraphic(userId);
+    if (gUser == null) {
+      Log.d(TAG, "User " + userId + " doesn't exist; creating graphic");
+      // Create a hidden graphic
+      gUser = newHiddenUserGraphic(userId, null, null);
+      _graphics.getGraphics().add(gUser);
+    }
 
-    Graphic gLbl = findUserLabelGraphic(userid);
+    // Update the location
+    Point ptMkr = new Point(x, y, z, SpatialReferences.getWgs84());
+    gUser.setGeometry(ptMkr);
+
+    SimpleMarkerSceneSymbol sym = (SimpleMarkerSceneSymbol) gUser.getSymbol();
+
+    if (gUser.getSymbol() == null) {
+      // Create default symbol with gray color, until color gets updated
+      sym = createMarkerSymbol(Color.GRAY);
+    }
+
+    // User exists with symbol and geometry, so show the graphic
+    // But first, update heading/pitch/roll
+    sym.setHeading(heading);
+    sym.setPitch(pitch);
+    sym.setRoll(roll);
+    gUser.setSymbol(sym);
+
+    gUser.setVisible(true);
+    showUserLabelGraphic(gUser);
     // Seeming bug prevents text label graphic from showing up when handled this way.
-/*    if (gLbl == null) throw new UserException("User label " + userid + " does not exist.");
+/*    if (gLbl == null) throw new UserException("User label " + userId + " does not exist.");
     Point ptLbl = new Point(x, y, z + (SYMBOL_HEIGHT));
     gLbl.setGeometry(ptLbl);
     gLbl.setVisible(true);*/
+
+/*    Graphic gLbl = findUserLabelGraphic(userId);
     if (gLbl != null) _graphics.getGraphics().remove(gLbl);
-    gLbl = createUserLabelGraphic(userid, sym.getColor(), x, y, z);
-    _graphics.getGraphics().add(gLbl);
+    gLbl = createUserLabelGraphic(gUser, sym.getColor(), x, y, z);
+    _graphics.getGraphics().add(gLbl);*/
   }
 
-  public void removeUserGraphics(String userid) throws UserException {
-    Graphic gMkr = findUserLocationGraphic(userid);
-    if (gMkr == null) throw new UserException("User " + userid + " does not exist.");
+  public void hideUserGraphic(String userId) {
+    Graphic gUser = findUserLocationGraphic(userId);
+    if (gUser == null) {
+      Log.d(TAG, "User " + userId + " does not exist.");
+      return;
+    }
 
-    _graphics.getGraphics().remove(gMkr);
+    hideUserLabelGraphic(gUser);
+    _graphics.getGraphics().remove(gUser);
 
-    Graphic gLbl = findUserLabelGraphic(userid);
-    if (gLbl == null) throw new UserException("User label " + userid + " does not exist.");
-
-    _graphics.getGraphics().remove(gLbl);
-
-    MessageUtils.showToast(getApplication(), userid + " has left.", Toast.LENGTH_LONG);
+    MessageUtils.showToast(getApplication(), userId + " has left.", Toast.LENGTH_LONG);
   }
 
   /**
    *
-   * @param userid The name or ID of the user we're looking for
+   * @param userId The name or ID of the user we're looking for
    * @return Scene Marker Graphic in {@link #_graphics} graphics overlay of the found user (null if not found)
    */
-  private Graphic findUserLocationGraphic(@NonNull String userid) {
+  private Graphic findUserLocationGraphic(@NonNull String userId) {
     Graphic gRet = null;
 
     for (int iUser = 0; iUser < _graphics.getGraphics().size(); iUser++) {
@@ -145,7 +189,7 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
       if (g.getSymbol() instanceof SimpleMarkerSceneSymbol
               && g.getAttributes().containsKey(attrName)
               && g.getAttributes().get(attrName).toString().toUpperCase()
-              .equals(userid.toUpperCase())) {
+              .equals(userId.toUpperCase())) {
         gRet = g;
         break;
       }
@@ -155,10 +199,10 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
 
   /**
    *
-   * @param userid The name or ID of the user we're looking for
+   * userId: The name or ID of the user we're looking for
    * @return Text Graphic in {@link #_graphics} graphics overlay of the found user (null if not found)
    */
-  private Graphic findUserLabelGraphic(@NonNull String userid) {
+  private Graphic findUserLabelGraphic(@NonNull String userId) {
     Graphic gRet = null;
     String attrName = getApplication().getString(R.string.attr_userid);
     for (int iUser = 0; iUser < _graphics.getGraphics().size(); iUser++) {
@@ -166,7 +210,7 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
       if (g.getSymbol() instanceof TextSymbol
               && g.getAttributes().containsKey(attrName)
               && g.getAttributes().get(attrName).toString().toUpperCase()
-                  .equals(userid.toUpperCase())) {
+                  .equals(userId.toUpperCase())) {
         gRet = g;
         break;
       }

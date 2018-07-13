@@ -72,6 +72,7 @@
         app:layout_constraintTop_toBottomOf="@id/lytLocationVals"
         app:layout_constraintLeft_toLeftOf="parent"
         android:layout_margin="8dp"
-        android:text="Send Location"/>
+        android:text="Send Location"
+        android:visibility="gone"/>
 
 </android.support.constraint.ConstraintLayout>

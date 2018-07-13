@@ -11,6 +11,7 @@ import android.provider.Settings;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
 import android.util.Base64;
+import android.util.Log;
 import android.view.View;
 
 import com.esri.apl.device_location_tracker.R;
@@ -157,7 +158,9 @@ public class MeViewModel extends AndroidViewModel {
     sendPushNotification(payloadAndroid, PP_ANDROID);
 
     final String payloadApple = getApplication().getString(R.string.push_msg_apple, sMessage); //"{\"aps\":{\"alert\":\"" + sPayload + "\"}}";
-    sendPushNotification(payloadApple, PP_IOS);
+    //  TODO re-enable for iPhone support
+//    sendPushNotification(payloadApple, PP_IOS);
+    Log.d(TAG,"Send " + sMessage);
   }
 
   /** Send an update notification to a single platform (Android or Apple) since they

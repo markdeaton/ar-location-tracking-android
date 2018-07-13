@@ -8,9 +8,10 @@
     <!ENTITY TYPE_COLOR "COLOR">
     <!ENTITY TYPE_LOCATION "LOCATION">
     <!ENTITY TYPE_GOODBYE "GOODBYE">
+    <!ENTITY PUSH_FREQ_SEC "2">
 ]>
 <resources>
-    <string name="app_name">Device Location Tracker</string>
+    <string name="app_name">AR Location Tracker</string>
 <!--    <string name="quickstart_message">Click the SUBSCRIBE TO NEWS button below to subscribe to the
         news topic. Messages sent to the news topic will be received. The LOG TOKEN button logs the
         InstanceID token to logcat.</string>
@@ -69,9 +70,10 @@
     <string name="update_goodbye" translatable="false">~&TYPE_PARAM;:&TYPE_GOODBYE;~&USER_PARAM;:%1$s</string>
 
     <!--REST push notification payload format -->
-    <string name="push_msg_android" translatable="false">{"\"data\"":{"\"message\"":"\"%1$s\""}}</string>
-    <string name="push_msg_apple" translatable="false">{"\"aps\"":{"\"alert\"":"\"%1$s\""}}</string>
-    <string name="push_msg_allformats" translatable="false">{"\"data\"":{"\"message\"":"\"%1$s\""}, "\"aps\"":{"\"alert\"":"\"%1$s\""}}</string>
+    <string name="push_msg_android" translatable="false">{\"time_to_live\":0,\"priority\":\"high\",\"data\":{\"message\":\"%1$s\"}}</string>
+    <string name="push_msg_apple" translatable="false">{\"aps\":{\"alert\":\"%1$s\"}}</string>
+    <item type="string" format="integer" name="push_freq_sec">&PUSH_FREQ_SEC;</item>
+    <!--<string name="push_msg_allformats" translatable="false">{"\"data\"":{"\"message\"":"\"%1$s\""}, "\"aps\"":{"\"alert\"":"\"%1$s\""}}</string>-->
 
     <!--Reporting X, Y, Z-->
     <string name="loc_x">X: %1$.3f</string>

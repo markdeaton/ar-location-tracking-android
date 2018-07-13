@@ -12,7 +12,7 @@
         android:title="Set User Color"
         app:showAsAction="never"/>
     <item android:id="@+id/mniTrackMe"
-          android:title="Tracking"
+          android:title="Track Me"
           app:showAsAction="always"
           app:actionLayout="@layout/vis_switch"
           android:visible="true"

@@ -33,7 +33,10 @@
     public static int v(...);
 }
 
+# ArcGIS Runtime
 -keep class com.esri.** { *; }
+
+# Other misc 3rd party libraries
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn javax.annotation.**
@@ -49,3 +52,7 @@
 -keepnames class org.ietf.jgss.** { *; }
 -dontwarn org.apache.**
 -dontwarn org.w3c.dom.**
+
+# ARCore - see https://github.com/google-ar/arcore-android-sdk/issues/122
+#-keep class com.google.ar.** { *; }
+#-keep class com.google.vr.** { *; }
