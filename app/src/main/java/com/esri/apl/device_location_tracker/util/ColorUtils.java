@@ -8,13 +8,14 @@ public class ColorUtils {
   private static final String TAG = "ColorUtils";
 
   public static String intToString(int color) {
-    return String.format("#%06X", 0xFFFFFF & color);
+    return String.format("%06X", 0xFFFFFF & color);
   }
 
   public static int stringToInt(String color) {
     // Default if received color is invalid
     @ColorInt int iColor = Color.GRAY;
     try {
+      if (!color.startsWith("#")) color = "#" + color;
       iColor = Color.parseColor(color);
     } catch (IllegalArgumentException e) {
       Log.w(TAG, "Invalid color received via notification: " + color);

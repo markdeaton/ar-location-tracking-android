@@ -8,10 +8,10 @@
     <!ENTITY TYPE_COLOR "COLOR">
     <!ENTITY TYPE_LOCATION "LOCATION">
     <!ENTITY TYPE_GOODBYE "GOODBYE">
-    <!ENTITY PUSH_FREQ_SEC "2">
+    <!ENTITY PUSH_FREQ_SEC "1">
 ]>
 <resources>
-    <string name="app_name">AR Location Tracker</string>
+    <string name="app_name">Location Sharing</string>
 <!--    <string name="quickstart_message">Click the SUBSCRIBE TO NEWS button below to subscribe to the
         news topic. Messages sent to the news topic will be received. The LOG TOKEN button logs the
         InstanceID token to logcat.</string>
@@ -35,18 +35,24 @@
     <string name="default_notification_channel_name">Location Updates</string>
 
     <!-- Start location in the real world -->
+    <!--Yosemite-->
     <item type="string" format="float" name="startloc_x">-119.5329397</item>
     <item type="string" format="float" name="startloc_y">37.7460363</item>
     <!--Altitude must be in meters for ArcGIS Camera constructor-->
     <item type="string" format="float" name="startloc_z">3000</item>
+
+    <!--San Diego-->
+    <!--<item type="string" format="float" name="startloc_x">-117.159204</item>-->
+    <!--<item type="string" format="float" name="startloc_y">32.707724</item>-->
+    <!--<item type="string" format="float" name="startloc_z">200</item>-->
 
     <!--Firebase Cloud identifiers-->
     <string name="notification_topic" translatable="false">APL_Location_Updates</string>
     <string name="function_update_location" translatable="false">updateLocation</string>
 
     <string name="scene_package_filename" translatable="false">w120n37_yosemite_dxt.slpk</string>
-    <string name="scene_layer_url_yosemite" translatable="false">https://tiles.arcgis.com/tiles/6DIQcwlPy8knb6sg/arcgis/rest/services/yosemite_halfdome/SceneServer/layers/0</string>
-    <string name="scene_layer_url_sd" translatable="false">https://tiles.arcgis.com/tiles/Imiq6naek6ZWdour/arcgis/rest/services/San_Diego_Textured_Buildings/SceneServer/layers/0</string>
+    <string name="scene_layer_url_yosemite" translatable="false">http://apl.maps.arcgis.com/home/item.html?id=1f97ba887fd4436c8b17a14d83584611</string>
+    <string name="scene_layer_url_sd" translatable="false">http://apl.maps.arcgis.com/home/item.html?id=ce53923f724e42c88d26c9ae0ea624ea</string>
 
     <!-- Find values in notification payload text -->
     <!--Capture an expression starting with a tilde and ending with either another tilde or the end of the string-->
@@ -71,6 +77,7 @@
 
     <!--REST push notification payload format -->
     <string name="push_msg_android" translatable="false">{\"time_to_live\":0,\"priority\":\"high\",\"data\":{\"message\":\"%1$s\"}}</string>
+    <string name="push_msg_android_collapsekey" translatable="false">{\"collapse_key\":\"$1$s\", \"time_to_live\":0,\"priority\":\"high\",\"data\":{\"message\":\"%2$s\"}}</string>
     <string name="push_msg_apple" translatable="false">{\"aps\":{\"alert\":\"%1$s\"}}</string>
     <item type="string" format="integer" name="push_freq_sec">&PUSH_FREQ_SEC;</item>
     <!--<string name="push_msg_allformats" translatable="false">{"\"data\"":{"\"message\"":"\"%1$s\""}, "\"aps\"":{"\"alert\"":"\"%1$s\""}}</string>-->
@@ -87,4 +94,7 @@
     <string name="pref_me_userid" translatable="false">pref_me_userid</string>
     <string name="pref_me_color" translatable="false">pref_me_color</string>
     <string name="pref_me_location_val_vis" translatable="false">pref_me_location_val_vis</string>
+
+    <!--Integers-->
+    <integer name="viewshed_dist_max">2000</integer>
 </resources>

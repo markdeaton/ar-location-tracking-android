@@ -60,4 +60,12 @@ public class AzureNotificationsHandler extends NotificationsHandler {
     mBuilder.setContentIntent(contentIntent);
     nmgr.notify(iMsgId, mBuilder.build());
   }
+
+  @Override
+  public void onUnregistered(Context context, String gcmRegistrationId) {
+    super.onUnregistered(context, gcmRegistrationId);
+
+    // Unregister
+
+  }
 }

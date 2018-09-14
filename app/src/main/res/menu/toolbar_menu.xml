@@ -1,20 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item android:id="@+id/mniLocValsVisibility"
-        android:title="Show Location"
-        android:checkable="true"
-        app:showAsAction="never"/>
+
+    <item android:id="@+id/mniTrackMe"
+        android:title="Track Me"
+        app:showAsAction="always"
+        app:actionLayout="@layout/vis_switch"
+        android:visible="true"
+        />
+
     <item android:id="@+id/mniSetUserName"
         android:title="Set User ID"
         app:showAsAction="never"/>
     <item android:id="@+id/mniSetUserColor"
         android:title="Set User Color"
         app:showAsAction="never"/>
-    <item android:id="@+id/mniTrackMe"
-          android:title="Track Me"
-          app:showAsAction="always"
-          app:actionLayout="@layout/vis_switch"
-          android:visible="true"
-          />
+    <!--Don't set a location vals visibility here, because it's stored in preferences-->
+    <item android:id="@+id/mniLocValsVisibility"
+        android:title="Show Location"
+        android:checkable="true"
+        app:showAsAction="never"/>
+    <item android:id="@+id/mniViewshedsVisibility"
+        android:title="Show Viewsheds"
+        app:showAsAction="never"
+        android:checkable="true"
+        android:checked="false"
+        />
+    <item android:id="@+id/mniSceneVisibility"
+        android:title="Show Scene Layers"
+        app:showAsAction="never"
+        android:checkable="true"
+        android:checked="true"
+        />
 </menu>

@@ -89,11 +89,13 @@ public class MeViewModel extends AndroidViewModel {
   public LiveData<Integer> getLocationValsVisibility() {
     return _locationValsVisibility;
   }
-
+  private void setLocationValsVisibility(boolean bVis) {
+    int iVis = bVis ? View.VISIBLE : View.GONE;
+    _locationValsVisibility.postValue(iVis);
+  }
   public void toggleLocationValsVisibility() {
     Integer vis = getLocationValsVisibility().getValue();
-    if (vis != null && vis == View.GONE) this._locationValsVisibility.postValue(View.VISIBLE);
-    else this._locationValsVisibility.postValue(View.GONE);
+    setLocationValsVisibility(!(vis != null && vis == View.VISIBLE));
   }
 
   public boolean isTrackingSwitchChecked() {
@@ -106,12 +108,21 @@ public class MeViewModel extends AndroidViewModel {
       this.trackingSwitchChecked = trackingSwitchStatus;
   }
 
+  /** Color is stored as hex RRGGBB stored WITHOUT an initial hash symbol (#).
+   * There are cases when the hash is needed for interfacing with Android system; this assists that. */
+  public String getColorStandardString() {
+    return "#" + _color;
+  }
+
+  /** Color is hex RRGGBB stored WITHOUT an initial hash symbol (#) */
   public String getColor() {
     return _color;
   }
 
+  /** Color is hex RRGGBB stored WITHOUT an initial hash symbol (#) */
   public void setColor(String color) {
-    this._color = color;
+    if (color.startsWith("#")) this._color = color.substring(1);
+    else this._color = color;
     if (isTrackingSwitchChecked()) sendColorUpdate();
   }
 
@@ -130,11 +141,11 @@ public class MeViewModel extends AndroidViewModel {
 
   public void sendHello() {
     String message = getApplication().getString(R.string.update_hello, _userId, _color);
-    sendPushNotifications(message);
+    sendPushNotifications(message, null);
   }
   public void sendColorUpdate() {
     String message = getApplication().getString(R.string.update_color, _userId, _color);
-    sendPushNotifications(message);
+    sendPushNotifications(message, null);
   }
   private void sendLocationUpdate() {
     String message = getApplication().getString(R.string.update_location,
@@ -142,25 +153,32 @@ public class MeViewModel extends AndroidViewModel {
             _camera.getLocation().getX(), _camera.getLocation().getY(), _camera.getLocation().getZ(),
             _camera.getHeading(), _camera.getPitch(), _camera.getRoll());
 
-    sendPushNotifications(message);
+    sendPushNotifications(message, "Location");
   }
   public void sendGoodbye() {
     String message = getApplication().getString(R.string.update_goodbye, _userId);
-    sendPushNotifications(message);
+    sendPushNotifications(message, null);
   }
 
   /** Send a push notification to other app users, via Azure Notification Hub.
    *
    * @param sMessage The info update notification text to broadcast to all app users
+   * @param sAndroidCollapseKey Collapse key for Android LOCATION messages only
+   *    (<a href="https://developers.google.com/cloud-messaging/concept-options#collapsible_and_non-collapsible_messages" target="_blank">More Info</a>)
    */
-  private void sendPushNotifications(String sMessage) {
-    final String payloadAndroid = getApplication().getString(R.string.push_msg_android, sMessage); //"{\"data\":{\"message\":\"" + sPayload + "\"}}";
+  private void sendPushNotifications(String sMessage, String sAndroidCollapseKey) {
+    String payloadAndroid;
+    if (sAndroidCollapseKey == null)
+      payloadAndroid = getApplication().getString(R.string.push_msg_android, sMessage); //"{\"data\":{\"message\":\"" + sPayload + "\"}}";
+    else
+      payloadAndroid = getApplication().getString(R.string.push_msg_android_collapsekey, sAndroidCollapseKey, sMessage);
+
     sendPushNotification(payloadAndroid, PP_ANDROID);
 
     final String payloadApple = getApplication().getString(R.string.push_msg_apple, sMessage); //"{\"aps\":{\"alert\":\"" + sPayload + "\"}}";
-    //  TODO re-enable for iPhone support
-//    sendPushNotification(payloadApple, PP_IOS);
-    Log.d(TAG,"Send " + sMessage);
+    sendPushNotification(payloadApple, PP_IOS);
+
+    Log.i(TAG,"Send " + sMessage);
   }
 
   /** Send an update notification to a single platform (Android or Apple) since they

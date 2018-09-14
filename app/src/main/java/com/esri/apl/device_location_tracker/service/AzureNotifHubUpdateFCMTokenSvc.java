@@ -21,6 +21,24 @@ public class AzureNotifHubUpdateFCMTokenSvc extends IntentService {
   }
 
   @Override
+  public void onCreate() {
+    super.onCreate();
+    hub = new NotificationHub(getString(R.string.hub_name),
+            getString(R.string.hub_listen_connection_string), this);
+  }
+
+/*  @Override
+  public void onDestroy() {
+    super.onDestroy();
+    try {
+      hub.unregister();
+      MessageUtils.showToast(this, "Unregister Azure notification hub");
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }*/
+
+  @Override
   protected void onHandleIntent(Intent intent) {
 
     SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -35,8 +53,6 @@ public class AzureNotifHubUpdateFCMTokenSvc extends IntentService {
       // otherwise your server should have already received the token.
       if (((regID=sharedPreferences.getString("registrationID", null)) == null)){
 
-        NotificationHub hub = new NotificationHub(getString(R.string.hub_name),
-            getString(R.string.hub_listen_connection_string), this);
         Log.d(TAG, "Attempting a new registration with NH using FCM token : " + FCM_token);
         regID = hub.register(FCM_token).getRegistrationId();
 
@@ -53,8 +69,6 @@ public class AzureNotifHubUpdateFCMTokenSvc extends IntentService {
       // Check if the token may have been compromised and needs refreshing.
       else if (!sharedPreferences.getString("FCMtoken", "").equals(FCM_token)) {
 
-        NotificationHub hub = new NotificationHub(getString(R.string.hub_name),
-            getString(R.string.hub_listen_connection_string), this);
         Log.d(TAG, "NH Registration refreshing with token : " + FCM_token);
         regID = hub.register(FCM_token).getRegistrationId();
 

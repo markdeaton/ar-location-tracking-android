@@ -17,6 +17,7 @@
 package com.esri.apl.device_location_tracker;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.arch.lifecycle.Observer;
@@ -111,58 +112,31 @@ import static android.widget.Toast.LENGTH_LONG;
  *
  *  <table>
  <tr>
- <th>Tracking Switch</th>
- <th>Activity State</th>
- <th>Broadcast Action</th>
- <th>Listen Action</th>
+ <th>Tracking Switch</th> <th>Activity State</th> <th>Broadcast Action</th> <th>Listen Action</th>
  </tr>
  <tr>
- <td>off -> on</td>
- <td>resumed</td>
- <td>send hello, start timer</td>
- <td>start listening</td>
+ <td>off -> on</td> <td>resumed</td> <td>send hello, start timer</td> <td>start listening</td>
  </tr>
  <tr>
- <td>off -> on</td>
- <td>paused</td>
- <td><i>not possible</i></td>
- <td></td>
+ <td>off -> on</td> <td>paused</td> <td><i>not possible</i></td> <td></td>
  </tr>
  <tr>
- <td>on -> off</td>
- <td>resumed</td>
- <td>send goodbye, stop timer</td>
- <td>stop listening</td>
+ <td>on -> off</td> <td>resumed</td> <td>send goodbye, stop timer</td> <td>stop listening</td>
  </tr>
  <tr>
- <td>on -> off</td>
- <td>paused</td>
- <td><i>not possible</i></td>
- <td></td>
+ <td>on -> off</td> <td>paused</td> <td><i>not possible</i></td> <td></td>
  </tr>
  <tr>
- <td>on</td>
- <td>paused -> resumed</td>
- <td>start timer</td>
- <td>start listening</td>
+ <td>on</td> <td>paused -> resumed</td> <td>start timer</td> <td>start listening</td>
  </tr>
  <tr>
- <td>on</td>
- <td>resumed -> paused</td>
- <td>stop timer</td>
- <td>stop listening</td>
+ <td>on</td> <td>resumed -> paused</td> <td>stop timer</td> <td>stop listening</td>
  </tr>
  <tr>
- <td>off</td>
- <td>paused -> resumed</td>
- <td>nothing</td>
- <td>nothing</td>
+ <td>off</td> <td>paused -> resumed</td> <td>nothing</td> <td>nothing</td>
  </tr>
  <tr>
- <td>off</td>
- <td>resumed -> paused</td>
- <td>nothing</td>
- <td>nothing</td>
+ <td>off</td> <td>resumed -> paused</td> <td>nothing</td> <td>nothing</td>
  </tr>
  </table>
  */
@@ -178,7 +152,7 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
   private TextView mTxtLocX, mTxtLocY, mTxtLocZ;
   private ViewGroup mLytLocationVals;
 
-  private MenuItem mMniLocationValsVisibility, mMniUserName;
+  private MenuItem mMniLocationValsVisibility, mMniUserName, mMniViewshedsVisibility;
 
   private AllOtherUsersViewModel mOtherUsersViewModel;
   private MeViewModel mMeViewModel;
@@ -198,6 +172,8 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     setContentView(R.layout.activity_main);
 
     mOtherUsersViewModel = ViewModelProviders.of(this).get(AllOtherUsersViewModel.class);
+    mOtherUsersViewModel.getAreViewshedsVisible().observe(this, mOnViewshedsVisibilityChanged);
+
     mMeViewModel = ViewModelProviders.of(this).get(MeViewModel.class);
     mMeViewModel.getLocationValsVisibility().observe(this, mOnLocationValsVisibilityChanged);
 
@@ -217,6 +193,7 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     GraphicsOverlay ovl = mOtherUsersViewModel.getGraphicsOverlay();
     ovl.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.ABSOLUTE);
     mSceneView.getGraphicsOverlays().add(ovl);
+    mSceneView.getAnalysisOverlays().add(mOtherUsersViewModel.getViewshedsOverlay());
 
     // Enable AR for scene view.
     mSceneView.setARModeEnabled(true);
@@ -301,9 +278,14 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
       SwitchCompat sliderTrackMe = itmSendLocation.getActionView().findViewById(R.id.sliderTrackMe);
       sliderTrackMe.setChecked(mMeViewModel.isTrackingSwitchChecked());
       sliderTrackMe.setOnCheckedChangeListener(mOnTrackingSwitchChanged);
+
       mMniLocationValsVisibility = menu.findItem(R.id.mniLocValsVisibility);
-      Integer vis = mMeViewModel.getLocationValsVisibility().getValue();
-      mMniLocationValsVisibility.setChecked(vis != null && vis == View.VISIBLE);
+      Integer visLV = mMeViewModel.getLocationValsVisibility().getValue();
+      mMniLocationValsVisibility.setChecked(visLV != null && visLV == View.VISIBLE);
+
+      mMniViewshedsVisibility = menu.findItem(R.id.mniViewshedsVisibility);
+      boolean visVS = mMniViewshedsVisibility.isChecked();
+      mOtherUsersViewModel.setAreViewshedsVisible(visVS);
 
       mMniUserName = menu.findItem(R.id.mniSetUserName);
       return true;
@@ -313,6 +295,8 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     }
   }
 
+  private Float mSceneViewX;
+
   @Override
   public boolean onOptionsItemSelected(MenuItem item) {
     switch (item.getItemId()) {
@@ -320,19 +304,18 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
         mMeViewModel.toggleLocationValsVisibility();
         return true;
       case R.id.mniSetUserColor:
+        @SuppressLint("InflateParams") // It's okay in this case to use null for root parameter
         View lytColorPicker = getLayoutInflater().inflate(R.layout.color_picker_dialog, null);
         HSLColorPicker colorPicker = lytColorPicker.findViewById(R.id.colorPicker);
-        colorPicker.setColor(ColorUtils.stringToInt(mMeViewModel.getColor()));
+        colorPicker.setColor(ColorUtils.stringToInt(mMeViewModel.getColorStandardString()));
         final AtomicInteger color = new AtomicInteger();
         colorPicker.setColorSelectionListener(new OnColorSelectionListener() {
           @Override
           public void onColorSelected(int i) {
             color.set(i);
           }
-
           @Override
           public void onColorSelectionStart(int i) { }
-
           @Override
           public void onColorSelectionEnd(int i) { }
         });
@@ -365,10 +348,28 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
                   if (sUserId.length() > 0) mMeViewModel.setUserId(sUserId);
                 });
         AlertDialog dlgColor = bldUserName.create();
-        dlgColor.getWindow().setLayout(480, 600);
-        dlgColor.show();
+        try {
+          dlgColor.getWindow().setLayout(480, 600);
+          dlgColor.show();
+        } catch (NullPointerException e) {
+          Log.e(TAG, "Color dialog window is null", e);
+          MessageUtils.showToast(this, "Could not create color dialog. Please see log.");
+        }
         return true;
-
+      case R.id.mniViewshedsVisibility:
+        // Toggle the value
+        mOtherUsersViewModel.setAreViewshedsVisible(!item.isChecked());
+        return true;
+      case R.id.mniSceneVisibility:
+        if (item.isChecked()) { // Hide scene view
+          mSceneViewX = mSceneView.getX();
+          mSceneView.setX(getWindow().getDecorView().getWidth());
+          item.setChecked(false);
+        } else { // Show scene view
+          mSceneView.setX(mSceneViewX);
+          item.setChecked(true);
+        }
+        return true;
       default: return super.onOptionsItemSelected(item);
     }
   }
@@ -427,9 +428,9 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
             if (mMeViewModel.isTrackingSwitchChecked()) mMeViewModel.sendColorUpdate();
           } else if (sType.toUpperCase().equals(getString(R.string.updatetype_goodbye).toUpperCase())) {
             // GOODBYE
-            mOtherUsersViewModel.hideUserGraphic(sUser);
+            mOtherUsersViewModel.removeUserGraphic(sUser);
           } else if (sType.toUpperCase().equals(getString(R.string.updatetype_color).toUpperCase())) {
-            // COLOR
+            // COLOR  (format = RRGGBB hex with no initial # symbol)
             sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
             int iColor = ColorUtils.stringToInt(sColor);
             mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
@@ -494,12 +495,14 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     // Create scene without a basemap.  Background for scene content provided by device camera.
     mSceneView.setScene(new ArcGISScene());
 
-    // Add San Diego scene layer.  This operational data will render on a video feed (eg from the device camera).
+    // Add scene layer.  This operational data will render on a video feed (eg from the device camera).
     String sPkgPath;
-    sPkgPath = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            getString(R.string.scene_package_filename)).getAbsolutePath();
+    File pkg = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            getString(R.string.scene_package_filename));
 
-//    sPkgPath = getString(R.string.scene_layer_url_yosemite);
+    if (pkg.exists()) sPkgPath = pkg.getAbsolutePath();
+    else sPkgPath = getString(R.string.scene_layer_url_yosemite);
+
     ArcGISSceneLayer lyrScene = new ArcGISSceneLayer(sPkgPath);
     lyrScene.setCredential(mMyAGOLCredential);
 
@@ -697,10 +700,18 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
   private Observer<Integer> mOnLocationValsVisibilityChanged = new Observer<Integer>() {
     @Override
     public void onChanged(@Nullable Integer vis) {
-      assert vis != null;
+      if (vis == null) return;
       if (mLytLocationVals != null) mLytLocationVals.setVisibility(vis);
       if (mMniLocationValsVisibility != null)
         mMniLocationValsVisibility.setChecked(vis == View.VISIBLE);
+    }
+  };
+
+  private Observer<Boolean> mOnViewshedsVisibilityChanged = new Observer<Boolean>() {
+    @Override
+    public void onChanged(@Nullable Boolean vis) {
+      // TODO Show viewshed distance slider (the ViewModel handles showing the viewshed analysis overlay)
+      if (mMniViewshedsVisibility != null) mMniViewshedsVisibility.setChecked(vis != null && vis);
     }
   };
 
