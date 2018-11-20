@@ -3,7 +3,6 @@
       xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item android:id="@+id/mniTrackMe"
-        android:title="Track Me"
         app:showAsAction="always"
         app:actionLayout="@layout/vis_switch"
         android:visible="true"

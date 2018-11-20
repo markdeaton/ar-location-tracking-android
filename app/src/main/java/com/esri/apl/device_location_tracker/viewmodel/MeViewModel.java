@@ -123,7 +123,7 @@ public class MeViewModel extends AndroidViewModel {
   public void setColor(String color) {
     if (color.startsWith("#")) this._color = color.substring(1);
     else this._color = color;
-    if (isTrackingSwitchChecked()) sendColorUpdate();
+    if (isTrackingSwitchChecked()) sendLocationUpdate();
   }
 
   @NonNull public String getUserId() {
@@ -139,19 +139,19 @@ public class MeViewModel extends AndroidViewModel {
     if (isTrackingSwitchChecked()) sendLocationUpdate();
   }
 
-  public void sendHello() {
+/*  public void sendHello() {
     String message = getApplication().getString(R.string.update_hello, _userId, _color);
     sendPushNotifications(message, null);
   }
   public void sendColorUpdate() {
     String message = getApplication().getString(R.string.update_color, _userId, _color);
     sendPushNotifications(message, null);
-  }
+  }*/
   private void sendLocationUpdate() {
     String message = getApplication().getString(R.string.update_location,
             _userId,
             _camera.getLocation().getX(), _camera.getLocation().getY(), _camera.getLocation().getZ(),
-            _camera.getHeading(), _camera.getPitch(), _camera.getRoll());
+            _camera.getHeading(), _camera.getPitch(), _camera.getRoll(), _color);
 
     sendPushNotifications(message, "Location");
   }

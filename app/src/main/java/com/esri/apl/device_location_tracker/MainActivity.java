@@ -378,8 +378,9 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
     new CompoundButton.OnCheckedChangeListener() {
       @Override
       public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-        if (isChecked) mMeViewModel.sendHello();
-        else mMeViewModel.sendGoodbye();
+/*        if (isChecked) mMeViewModel.sendHello();
+        else mMeViewModel.sendGoodbye();*/
+        if (!isChecked) mMeViewModel.sendGoodbye();
 
         mMeViewModel.setTrackingSwitchChecked(isChecked);
         setTrackingTimerEnabled(isChecked);
@@ -416,41 +417,41 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
         // Ignore notifications if they're about ourselves
         if (sUser.equals(mMeViewModel.getUserId())) return;
 
-        // Don't process the message if we're not tracking
-//        if (mMeViewModel.isTrackingSwitchChecked()) {
           // Handle differently, depending on message type
-          if (sType.toUpperCase().equals(getString(R.string.updatetype_hello).toUpperCase())) {
-            // HELLO
-            sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
-            int iColor = ColorUtils.stringToInt(sColor);
-            mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
-            // Respond with color update; a way of saying Hello back
-            if (mMeViewModel.isTrackingSwitchChecked()) mMeViewModel.sendColorUpdate();
-          } else if (sType.toUpperCase().equals(getString(R.string.updatetype_goodbye).toUpperCase())) {
-            // GOODBYE
-            mOtherUsersViewModel.removeUserGraphic(sUser);
-          } else if (sType.toUpperCase().equals(getString(R.string.updatetype_color).toUpperCase())) {
-            // COLOR  (format = RRGGBB hex with no initial # symbol)
-            sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
-            int iColor = ColorUtils.stringToInt(sColor);
-            mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
-          } else if (sType.toUpperCase().equals(getString(R.string.updatetype_location).toUpperCase())) {
-            // LOCATION UPDATE
-            sLocation = TextUtils.matchedGroupVal(ptnCameraField, sLocationPayload);
-            // Location is 6 comma-separated values: x,y,z,heading,pitch,roll
-            String[] aryLocVals = sLocation.split(",");
-            int aryLen = aryLocVals.length;
-            if (aryLen < 6) throw new PayloadParseException(
-                    "Location has " + aryLen + " values instead of 6");
-            double x = Double.parseDouble(aryLocVals[0]);
-            double y = Double.parseDouble(aryLocVals[1]);
-            double z = Double.parseDouble(aryLocVals[2]);
-            double heading = Double.parseDouble(aryLocVals[3]);
-            double pitch = Double.parseDouble(aryLocVals[4]);
-            double roll = Double.parseDouble(aryLocVals[5]);
-            mOtherUsersViewModel.updateUserGraphicLocation(sUser, x, y, z, heading, pitch, roll);
-          }
-//        }
+        if (sType.toUpperCase().equals(getString(R.string.updatetype_location).toUpperCase())) {
+          // LOCATION
+          sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
+          int iColor = ColorUtils.stringToInt(sColor);
+          sLocation = TextUtils.matchedGroupVal(ptnCameraField, sLocationPayload);
+          // Location is 6 comma-separated values: x,y,z,heading,pitch,roll
+          String[] aryLocVals = sLocation.split(",");
+          int aryLen = aryLocVals.length;
+          if (aryLen < 6) throw new PayloadParseException(
+                  "Location has " + aryLen + " values instead of 6");
+          double x = Double.parseDouble(aryLocVals[0]);
+          double y = Double.parseDouble(aryLocVals[1]);
+          double z = Double.parseDouble(aryLocVals[2]);
+          double heading = Double.parseDouble(aryLocVals[3]);
+          double pitch = Double.parseDouble(aryLocVals[4]);
+          double roll = Double.parseDouble(aryLocVals[5]);
+          mOtherUsersViewModel.updateUserGraphicLocation(sUser, x, y, z, heading, pitch, roll);
+          mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
+        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_goodbye).toUpperCase())) {
+          // GOODBYE
+          mOtherUsersViewModel.removeUserGraphic(sUser);
+        }/* else if (sType.toUpperCase().equals(getString(R.string.updatetype_hello).toUpperCase())) {
+          // HELLO
+          sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
+          int iColor = ColorUtils.stringToInt(sColor);
+          mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
+          // Respond with color update; a way of saying Hello back
+          if (mMeViewModel.isTrackingSwitchChecked()) mMeViewModel.sendColorUpdate();
+        } else if (sType.toUpperCase().equals(getString(R.string.updatetype_color).toUpperCase())) {
+          // COLOR  (format = RRGGBB hex with no initial # symbol)
+          sColor = TextUtils.matchedGroupVal(ptnColorField, sLocationPayload);
+          int iColor = ColorUtils.stringToInt(sColor);
+          mOtherUsersViewModel.updateUserGraphicColor(sUser, iColor);
+        }*/
 
       } catch (PayloadParseException exc) {
         MessageUtils.showToast(ctx,
@@ -466,19 +467,19 @@ public class MainActivity extends AppCompatActivity implements SceneUpdateCallab
           String groupId = getString(R.string.default_notification_group_id);
           if (sType == null || sType.length() == 0) {
             // Use defaults already set
-          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_hello).toUpperCase())) {
+          } /*else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_hello).toUpperCase())) {
             msgId = R.string.update_hello;
             groupId = getString(R.string.hello_notification_group_id);
             notifTitle = "HELLO";
-          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_goodbye).toUpperCase())) {
+          }*/ else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_goodbye).toUpperCase())) {
             msgId = R.string.update_goodbye;
             groupId = getString(R.string.goodbye_notification_group_id);
             notifTitle = "GOODBYE";
-          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_color).toUpperCase())) {
+          } /*else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_color).toUpperCase())) {
             msgId = R.string.update_color;
             groupId = getString(R.string.color_notification_group_id);
             notifTitle = "COLOR UPDATE";
-          } else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_location).toUpperCase())) {
+          }*/ else if (sType.toUpperCase().equals(ctx.getString(R.string.updatetype_location).toUpperCase())) {
             msgId = R.string.update_location;
             groupId = getString(R.string.location_notification_group_id);
             notifTitle = "LOCATION UPDATE";

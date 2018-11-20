@@ -12,14 +12,9 @@
 ]>
 <resources>
     <string name="app_name">Location Sharing</string>
-<!--    <string name="quickstart_message">Click the SUBSCRIBE TO NEWS button below to subscribe to the
-        news topic. Messages sent to the news topic will be received. The LOG TOKEN button logs the
-        InstanceID token to logcat.</string>
-    <string name="subscribe_to_news">Subscribe To Location Updates</string>
-    <string name="log_token">Log Token</string>-->
 
-    <string name="msg_subscribed">Subscribed to APL_Location_Updates topic</string>
-    <string name="msg_token_fmt">InstanceID Token: %1$s</string>
+    <!--<string name="msg_subscribed">Subscribed to APL_Location_Updates topic</string>-->
+    <!--<string name="msg_token_fmt">InstanceID Token: %1$s</string>-->
 
     <string name="default_notification_channel_id" translatable="false">fcm_default_channel</string>
     <string name="default_notification_group_id" translatable="false">app_notification_group_id</string>
@@ -51,16 +46,16 @@
     <string name="function_update_location" translatable="false">updateLocation</string>
 
     <string name="scene_package_filename" translatable="false">w120n37_yosemite_dxt.slpk</string>
-    <string name="scene_layer_url_yosemite" translatable="false">http://apl.maps.arcgis.com/home/item.html?id=1f97ba887fd4436c8b17a14d83584611</string>
-    <string name="scene_layer_url_sd" translatable="false">http://apl.maps.arcgis.com/home/item.html?id=ce53923f724e42c88d26c9ae0ea624ea</string>
+    <string name="scene_layer_url_yosemite" translatable="false">https://apl.maps.arcgis.com/home/item.html?id=1f97ba887fd4436c8b17a14d83584611</string>
+    <string name="scene_layer_url_sd" translatable="false">https://apl.maps.arcgis.com/home/item.html?id=ce53923f724e42c88d26c9ae0ea624ea</string>
 
     <!-- Find values in notification payload text -->
     <!--Capture an expression starting with a tilde and ending with either another tilde or the end of the string-->
     <string name="act_location_update_available">com.esri.apl.locationsharing.receiver.location_updates</string>
     <string name="extra_notification_update_data">push_payload</string>
 
-    <string name="updatetype_hello" translatable="false">&TYPE_HELLO;</string>
-    <string name="updatetype_color" translatable="false">&TYPE_COLOR;</string>
+    <!--<string name="updatetype_hello" translatable="false">&TYPE_HELLO;</string>-->
+    <!--<string name="updatetype_color" translatable="false">&TYPE_COLOR;</string>-->
     <string name="updatetype_location" translatable="false">&TYPE_LOCATION;</string>
     <string name="updatetype_goodbye" translatable="false">&TYPE_GOODBYE;</string>
 
@@ -69,10 +64,10 @@
     <string name="regex_find_color" translatable="false">(?&lt;=~&COLOR_PARAM;:).*?(?=~|$)</string>
     <string name="regex_find_camera" translatable="false">(?&lt;=~&CAMERA_PARAM;:).*?(?=~|$)</string>
 
-    <string name="update_hello" translatable="false">~&TYPE_PARAM;:&TYPE_HELLO;~&USER_PARAM;:%1$s~&COLOR_PARAM;:%2$s</string>
-    <string name="update_color" translatable="false">~&TYPE_PARAM;:&TYPE_COLOR;~&USER_PARAM;:%1$s~&COLOR_PARAM;:%2$s</string>
+    <!--<string name="update_hello" translatable="false">~&TYPE_PARAM;:&TYPE_HELLO;~&USER_PARAM;:%1$s~&COLOR_PARAM;:%2$s</string>-->
+    <!--<string name="update_color" translatable="false">~&TYPE_PARAM;:&TYPE_COLOR;~&USER_PARAM;:%1$s~&COLOR_PARAM;:%2$s</string>-->
     <!--Camera variables are lon, lat, alt, heading, pitch, roll.-->
-    <string name="update_location" translatable="false">~&TYPE_PARAM;:&TYPE_LOCATION;~&USER_PARAM;:%1$s~&CAMERA_PARAM;:%2$f,%3$f,%4$f,%5$f,%6$f,%7$f</string>
+    <string name="update_location" translatable="false">~&TYPE_PARAM;:&TYPE_LOCATION;~&USER_PARAM;:%1$s~&CAMERA_PARAM;:%2$f,%3$f,%4$f,%5$f,%6$f,%7$f~&COLOR_PARAM;:%8$s</string>
     <string name="update_goodbye" translatable="false">~&TYPE_PARAM;:&TYPE_GOODBYE;~&USER_PARAM;:%1$s</string>
 
     <!--REST push notification payload format -->

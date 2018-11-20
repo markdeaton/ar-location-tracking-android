@@ -34,13 +34,11 @@ import java.util.List;
 
 public class AllOtherUsersViewModel extends AndroidViewModel {
   private final static String TAG = "UserViewModel";
-  private final static int SYMBOL_HEIGHT = 150;
+  private final static int SYMBOL_HEIGHT = 200;
   private final static int SYMBOL_WIDTH = 75;
 
   /** Graphics overlay for displaying participating users.
-   *  User graphics are created and added on HELLO message.
-   *  User graphics are made visible on COLOR update or LOCATION update, providing that
-   *  both color and location information is available, or made invisible if not.
+   *  User graphics are created and added on LOCATION message.
    *  Viewsheds are shown when 1) user graphic location becomes available and viewshed checkbox is
    *  checked, or 2) when checkbox is checked;
    *  they're made invisible when checkbox is unchecked.
@@ -67,10 +65,11 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
 
   /** Create a hidden user graphic for the given userId and location.
    *  Also create a hidden viewshed analysis. */
-  private Graphic newHiddenUserGraphic(@NonNull @NotNull String userId,
-                                       @Nullable @ColorInt Integer color,
-                                       @Nullable Point ptUserLoc) {
-    Graphic gUser = new Graphic(); gUser.setVisible(false);
+  private Graphic newUserGraphic(@NonNull @NotNull String userId,
+                                 @Nullable @ColorInt Integer color,
+                                 @Nullable Point ptUserLoc) {
+    Graphic gUser = new Graphic();
+//    gUser.setVisible(false);
 
     String attrId = getApplication().getString(R.string.attr_userid);
     gUser.getAttributes().put(attrId, userId);
@@ -120,13 +119,13 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
     Graphic gLabel = findUserLabelGraphic(sUserId);
     if (gLabel != null) _graphics.getGraphics().remove(gLabel);
   }
-  /** Handle color change, whether through HELLO or through COLOR notification */
+  /** Handle color change, part of LOCATION notification */
   public void updateUserGraphicColor(@NonNull @NotNull String userId, @ColorInt int color) {
     Graphic gUser = findUserLocationGraphic(userId);
     if (gUser == null) { // User graphic doesn't exist yet
       Log.d(TAG, "User " + userId + " doesn't exist; creating graphic");
       // Create a hidden graphic
-      gUser = newHiddenUserGraphic(userId, null, null);
+      gUser = newUserGraphic(userId, null, null);
       _graphics.getGraphics().add(gUser);
     }
 
@@ -171,7 +170,7 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
     if (gUser == null) {
       Log.d(TAG, "User " + userId + " doesn't exist; creating graphic");
       // Create a hidden graphic
-      gUser = newHiddenUserGraphic(userId, null, null);
+      gUser = newUserGraphic(userId, null, null);
       _graphics.getGraphics().add(gUser);
     }
 
@@ -189,8 +188,13 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
     // User exists with symbol and geometry, so show the graphic
     // But first, update heading/pitch/roll
     sym.setHeading(heading);
+
+    // TODO remove
+//    pitch = 0;
+
     sym.setPitch(pitch);
     sym.setRoll(roll);
+
     gUser.setSymbol(sym);
 
     gUser.setVisible(true);
@@ -214,18 +218,22 @@ public class AllOtherUsersViewModel extends AndroidViewModel {
 
       // Have to add three because at Esri Runtime 100.2.1, viewshed's max angle is 120
       boolean viewshedsVis = areViewshedsVisible();
-      GeoElementViewshed gev1 = new GeoElementViewshed(gUser, 120, 90,
-              0, maxDist, 0, 0);
+
+      // TODO remove this
+      double pitchOffset = -((SimpleMarkerSceneSymbol) gUser.getSymbol()).getPitch();
+
+      GeoElementViewshed gev1 = new GeoElementViewshed(gUser, 120, 120,
+              0, maxDist, 0, pitchOffset);
       gev1.setOffsetZ(-1);
       gev1.setVisible(viewshedsVis);
       _viewshedOverlay.getAnalyses().add(gev1);
-      GeoElementViewshed gev2 = new GeoElementViewshed(gUser, 120, 90,
-              0, maxDist, 120, 0);
+      GeoElementViewshed gev2 = new GeoElementViewshed(gUser, 120, 120,
+              0, maxDist, 120, pitchOffset);
       gev2.setOffsetZ(-1);
       gev2.setVisible(viewshedsVis);
       _viewshedOverlay.getAnalyses().add(gev2);
-      GeoElementViewshed gev3 = new GeoElementViewshed(gUser, 120, 90,
-              0, maxDist, 240, 0);
+      GeoElementViewshed gev3 = new GeoElementViewshed(gUser, 120, 120,
+              0, maxDist, 240, pitchOffset);
       gev3.setOffsetZ(-1);
       gev3.setVisible(viewshedsVis);
       _viewshedOverlay.getAnalyses().add(gev3);
